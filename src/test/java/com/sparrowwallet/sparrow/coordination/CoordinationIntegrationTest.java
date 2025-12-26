@@ -34,6 +34,9 @@ public class CoordinationIntegrationTest {
 
     @BeforeEach
     public void setUp() {
+        // Configure global network to TESTNET for address parsing
+        Network.set(Network.TESTNET);
+
         // Create two coordination managers (simulating two users)
         manager1 = new CoordinationSessionManager();
         manager2 = new CoordinationSessionManager();

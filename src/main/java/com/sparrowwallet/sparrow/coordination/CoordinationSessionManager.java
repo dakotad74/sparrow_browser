@@ -376,7 +376,7 @@ public class CoordinationSessionManager extends Service<Void> {
                 return;
             }
 
-            Network network = Network.valueOf(networkStr);
+            Network network = Network.valueOf(networkStr.toUpperCase());
             int expectedParticipants = Integer.parseInt(expectedParticipantsStr);
 
             // Create local representation of remote session

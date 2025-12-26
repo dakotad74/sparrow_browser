@@ -118,7 +118,8 @@ public class CoordinationSession {
         boolean duplicate = outputs.stream()
                 .anyMatch(existing -> existing.getAddress().equals(output.getAddress()));
         if(duplicate) {
-            throw new IllegalArgumentException("Output with this address already exists");
+            // Silently ignore duplicate addresses - don't add but don't fail
+            return;
         }
 
         outputs.add(output);
