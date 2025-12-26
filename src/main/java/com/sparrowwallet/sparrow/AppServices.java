@@ -125,6 +125,8 @@ public class AppServices {
 
     private TorService torService;
 
+    private com.sparrowwallet.sparrow.nostr.NostrEventService nostrEventService;
+
     private ScheduledService<Void> preventSleepService;
 
     private static Integer currentBlockHeight;
@@ -209,6 +211,7 @@ public class AppServices {
         ratesService = createRatesService(config.getExchangeSource(), config.getFiatCurrency());
         versionCheckService = createVersionCheckService();
         torService = createTorService();
+        nostrEventService = createNostrEventService();
         preventSleepService = createPreventSleepService();
 
         onlineProperty.addListener(onlineServicesListener);
@@ -459,6 +462,23 @@ public class AppServices {
         return torService;
     }
 
+    private com.sparrowwallet.sparrow.nostr.NostrEventService createNostrEventService() {
+        com.sparrowwallet.sparrow.nostr.NostrEventService nostrService = new com.sparrowwallet.sparrow.nostr.NostrEventService();
+        nostrService.setPeriod(javafx.util.Duration.minutes(5)); // Health check every 5 minutes
+        nostrService.setRestartOnFailure(true);
+
+        nostrService.setOnFailed(workerStateEvent -> {
+            log.error("Nostr service failed", workerStateEvent.getSource().getException());
+        });
+
+        // Start service if Nostr is enabled in config
+        if(Config.get().isNostrEnabled()) {
+            nostrService.start();
+        }
+
+        return nostrService;
+    }
+
     private ScheduledService<Void> createPreventSleepService() {
         ScheduledService<Void> preventSleepService = new ScheduledService<Void>() {
             @Override
@@ -657,6 +677,10 @@ public class AppServices {
 
     public Application getApplication() {
         return application;
+    }
+
+    public com.sparrowwallet.sparrow.nostr.NostrEventService getNostrEventService() {
+        return nostrEventService;
     }
 
     public void minimizeStage(Stage stage) {

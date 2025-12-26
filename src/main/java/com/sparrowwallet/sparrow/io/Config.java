@@ -90,6 +90,14 @@ public class Config {
     private Double appWidth;
     private Double appHeight;
 
+    // Nostr coordination settings
+    private boolean nostrEnabled = true;
+    private List<String> nostrRelays = List.of(
+        "wss://relay.damus.io",
+        "wss://nostr.wine",
+        "wss://relay.nostr.band"
+    );
+
     private static Config INSTANCE;
 
     private static Gson getGson() {
@@ -771,6 +779,24 @@ public class Config {
         } catch (IOException e) {
             //Ignore
         }
+    }
+
+    public boolean isNostrEnabled() {
+        return nostrEnabled;
+    }
+
+    public void setNostrEnabled(boolean nostrEnabled) {
+        this.nostrEnabled = nostrEnabled;
+        flush();
+    }
+
+    public List<String> getNostrRelays() {
+        return nostrRelays;
+    }
+
+    public void setNostrRelays(List<String> nostrRelays) {
+        this.nostrRelays = nostrRelays;
+        flush();
     }
 
     private static class FileSerializer implements JsonSerializer<File> {
