@@ -292,19 +292,333 @@ public class CoordinationSessionManager extends Service<Void> {
      */
     @Subscribe
     public void onNostrMessage(NostrMessageReceivedEvent event) {
-        // TODO Phase 3 Part 3: Parse and handle Nostr coordination messages based on tags
-        // - session-create: ["d", "session-create"]
-        // - session-join: ["d", "session-join"]
-        // - output-proposal: ["d", "output-proposal"]
-        // - fee-proposal: ["d", "fee-proposal"]
-        // - fee-agreed: ["d", "fee-agreed"]
-        // - session-finalize: ["d", "session-finalize"]
-        log.debug("Received Nostr message: {}", event.getNostrEvent());
+        NostrEvent nostrEvent = event.getNostrEvent();
 
-        String messageType = event.getNostrEvent().getTagValue("d");
-        if(messageType != null) {
-            log.debug("Coordination message type: {}", messageType);
-            // TODO Phase 3 Part 3: Route to appropriate handler based on messageType
+        // Only process coordination events
+        if(nostrEvent.getKind() != NostrEvent.KIND_COORDINATION) {
+            return;
+        }
+
+        log.debug("Received Nostr coordination message: {}", nostrEvent);
+
+        String messageType = nostrEvent.getTagValue("d");
+        if(messageType == null) {
+            log.warn("Received coordination event without message type tag");
+            return;
+        }
+
+        // Ignore our own messages
+        if(myNostrPubkey.equals(nostrEvent.getPubkey())) {
+            log.debug("Ignoring own message: {}", messageType);
+            return;
+        }
+
+        try {
+            // Route to appropriate handler based on message type
+            switch(messageType) {
+                case "session-create":
+                    handleSessionCreateMessage(nostrEvent);
+                    break;
+                case "session-join":
+                    handleSessionJoinMessage(nostrEvent);
+                    break;
+                case "output-proposal":
+                    handleOutputProposalMessage(nostrEvent);
+                    break;
+                case "fee-proposal":
+                    handleFeeProposalMessage(nostrEvent);
+                    break;
+                case "fee-agreed":
+                    handleFeeAgreedMessage(nostrEvent);
+                    break;
+                case "session-finalize":
+                    handleSessionFinalizeMessage(nostrEvent);
+                    break;
+                default:
+                    log.warn("Unknown coordination message type: {}", messageType);
+            }
+        } catch(Exception e) {
+            log.error("Error handling Nostr message type {}: {}", messageType, e.getMessage(), e);
+        }
+    }
+
+    // Nostr Message Handling Methods
+
+    /**
+     * Handle incoming session-create messages
+     */
+    private void handleSessionCreateMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+        if(sessionId == null) {
+            log.warn("session-create message missing session-id tag");
+            return;
+        }
+
+        // Check if we already know about this session
+        if(sessions.containsKey(sessionId)) {
+            log.debug("Session already exists: {}", sessionId);
+            return;
+        }
+
+        log.info("Discovered new session via Nostr: {}", sessionId);
+
+        // Parse content
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
+
+            String walletDescriptor = (String) content.get("wallet_descriptor");
+            String networkStr = event.getTagValue("network");
+            String expectedParticipantsStr = event.getTagValue("expected-participants");
+
+            if(walletDescriptor == null || networkStr == null || expectedParticipantsStr == null) {
+                log.warn("session-create message missing required fields");
+                return;
+            }
+
+            Network network = Network.valueOf(networkStr);
+            int expectedParticipants = Integer.parseInt(expectedParticipantsStr);
+
+            // Create local representation of remote session
+            CoordinationSession session = new CoordinationSession(
+                sessionId,
+                walletDescriptor,
+                network,
+                expectedParticipants
+            );
+
+            sessions.put(sessionId, session);
+
+            // Fire event so UI can show discovered session
+            EventManager.get().post(new CoordinationSessionCreatedEvent(session));
+
+            log.info("Remote session added: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Error parsing session-create message", e);
+        }
+    }
+
+    /**
+     * Handle incoming session-join messages
+     */
+    private void handleSessionJoinMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+        String participantPubkey = event.getTagValue("participant-pubkey");
+
+        if(sessionId == null || participantPubkey == null) {
+            log.warn("session-join message missing required tags");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received join for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
+
+            String name = (String) content.get("name");
+            String xpub = (String) content.get("xpub");
+
+            CoordinationParticipant participant = new CoordinationParticipant(participantPubkey, name, xpub);
+
+            // Add participant if not already in session
+            if(session.getParticipant(participantPubkey) == null) {
+                session.addParticipant(participant);
+
+                // Fire event
+                EventManager.get().post(new CoordinationParticipantJoinedEvent(sessionId, participant));
+
+                log.info("Participant {} joined session {}", participantPubkey.substring(0, 8), sessionId);
+            }
+
+        } catch(Exception e) {
+            log.error("Error parsing session-join message", e);
+        }
+    }
+
+    /**
+     * Handle incoming output-proposal messages
+     */
+    private void handleOutputProposalMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+
+        if(sessionId == null) {
+            log.warn("output-proposal message missing session-id tag");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received output proposal for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
+
+            String addressStr = (String) content.get("address");
+            Number amountNum = (Number) content.get("amount");
+            String label = (String) content.get("label");
+            String proposedBy = (String) content.get("proposed_by");
+
+            if(addressStr == null || amountNum == null || proposedBy == null) {
+                log.warn("output-proposal message missing required fields");
+                return;
+            }
+
+            Address address = Address.fromString(addressStr);
+            long amount = amountNum.longValue();
+
+            CoordinationOutput output = new CoordinationOutput(address, amount, label, proposedBy);
+
+            // Check for duplicate before adding
+            boolean duplicate = session.getOutputs().stream()
+                    .anyMatch(existing -> existing.getAddress().equals(output.getAddress()));
+
+            if(!duplicate) {
+                session.proposeOutput(output);
+
+                // Add to participant's outputs
+                CoordinationParticipant participant = session.getParticipant(proposedBy);
+                if(participant != null) {
+                    participant.addProposedOutput(output);
+                }
+
+                log.info("Output proposed for session {}: {} sats to {}",
+                        sessionId, amount, addressStr);
+            }
+
+        } catch(Exception e) {
+            log.error("Error parsing output-proposal message", e);
+        }
+    }
+
+    /**
+     * Handle incoming fee-proposal messages
+     */
+    private void handleFeeProposalMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+        String feeRateStr = event.getTagValue("fee-rate");
+
+        if(sessionId == null || feeRateStr == null) {
+            log.warn("fee-proposal message missing required tags");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received fee proposal for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
+
+            String proposedBy = (String) content.get("proposed_by");
+            Number feeRateNum = (Number) content.get("fee_rate");
+
+            if(proposedBy == null || feeRateNum == null) {
+                log.warn("fee-proposal message missing required fields");
+                return;
+            }
+
+            double feeRate = feeRateNum.doubleValue();
+
+            CoordinationFeeProposal feeProposal = new CoordinationFeeProposal(proposedBy, feeRate);
+            session.proposeFee(feeProposal);
+
+            log.info("Fee proposed for session {}: {} sat/vB by {}",
+                    sessionId, feeRate, proposedBy.substring(0, 8));
+
+            // Check if all participants have now proposed fees
+            if(session.allParticipantsProposedFees()) {
+                Optional<Double> highestFee = session.getHighestProposedFeeRate();
+                if(highestFee.isPresent()) {
+                    session.agreeFee(highestFee.get());
+                    log.info("All fees collected for session {}, agreed on: {} sat/vB",
+                            sessionId, highestFee.get());
+                }
+            }
+
+        } catch(Exception e) {
+            log.error("Error parsing fee-proposal message", e);
+        }
+    }
+
+    /**
+     * Handle incoming fee-agreed messages
+     */
+    private void handleFeeAgreedMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+        String agreedFeeRateStr = event.getTagValue("agreed-fee-rate");
+
+        if(sessionId == null || agreedFeeRateStr == null) {
+            log.warn("fee-agreed message missing required tags");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received fee agreement for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            double agreedFeeRate = Double.parseDouble(agreedFeeRateStr);
+
+            // Only update if we haven't already agreed on a fee
+            if(session.getAgreedFeeRate() == null) {
+                session.agreeFee(agreedFeeRate);
+                log.info("Fee agreed for session {}: {} sat/vB", sessionId, agreedFeeRate);
+            }
+
+        } catch(Exception e) {
+            log.error("Error parsing fee-agreed message", e);
+        }
+    }
+
+    /**
+     * Handle incoming session-finalize messages
+     */
+    private void handleSessionFinalizeMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+
+        if(sessionId == null) {
+            log.warn("session-finalize message missing session-id tag");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received finalize for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            // Only finalize if we're ready
+            if(session.isReadyToFinalize()) {
+                SessionState oldState = session.getState();
+                session.finalizeSession();
+                SessionState newState = session.getState();
+
+                // Fire state change event
+                EventManager.get().post(new CoordinationSessionStateChangedEvent(sessionId, oldState, newState));
+
+                log.info("Session finalized remotely: {}", sessionId);
+            } else {
+                log.warn("Received finalize for session {} but not ready (state: {})",
+                        sessionId, session.getState());
+            }
+
+        } catch(Exception e) {
+            log.error("Error handling session-finalize message", e);
         }
     }
 
