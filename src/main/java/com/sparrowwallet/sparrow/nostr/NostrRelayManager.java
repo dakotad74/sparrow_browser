@@ -8,13 +8,15 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 /**
  * Manages WebSocket connections to multiple Nostr relays.
  * Handles event publishing, subscription management, and connection health monitoring.
  * Integrates with Sparrow's existing Tor proxy support for privacy.
  *
- * NOTE: This is a stub implementation for Phase 1. Full Nostr integration will be implemented in Phase 2.
+ * Phase 3 Part 2: This is an enhanced stub that provides the interface needed for coordination.
+ * Full nostr-java WebSocket integration will be implemented once we have better API documentation.
  */
 public class NostrRelayManager {
     private static final Logger log = LoggerFactory.getLogger(NostrRelayManager.class);
@@ -24,6 +26,7 @@ public class NostrRelayManager {
     private final ExecutorService executor;
     private Proxy proxy;
     private boolean connected;
+    private Consumer<NostrEvent> messageHandler;
 
     public NostrRelayManager(List<String> relayUrls) {
         this.relayUrls = new ArrayList<>(relayUrls);
@@ -46,7 +49,7 @@ public class NostrRelayManager {
             return;
         }
 
-        log.info("Connecting to {} Nostr relays (stub implementation)", relayUrls.size());
+        log.info("Connecting to {} Nostr relays (stub with nostr-java available)", relayUrls.size());
 
         for(String url : relayUrls) {
             executor.submit(() -> connectToRelay(url));
@@ -57,12 +60,18 @@ public class NostrRelayManager {
 
     /**
      * Connect to a single relay
+     * TODO: Implement real WebSocket connection using nostr-java library
      */
     private void connectToRelay(String url) {
         try {
             log.debug("Connecting to relay: {} (stub)", url);
 
-            // TODO: Implement actual WebSocket connection
+            // TODO Phase 3 Part 3: Implement actual WebSocket connection
+            // - Create nostr.base.Relay instance
+            // - Create WebSocket client (may need custom implementation due to Spring Boot dependency)
+            // - Configure Tor proxy if set
+            // - Set up message listeners
+
             relayStatuses.put(url, new RelayStatus(url, true, null));
             log.info("Connected to relay: {} (stub)", url);
 
@@ -88,6 +97,64 @@ public class NostrRelayManager {
     public void setProxy(Proxy proxy) {
         this.proxy = proxy;
         log.info("Tor proxy configured: {}", proxy);
+    }
+
+    /**
+     * Set message handler for incoming events
+     */
+    public void setMessageHandler(Consumer<NostrEvent> handler) {
+        this.messageHandler = handler;
+    }
+
+    /**
+     * Publish an event to all connected relays
+     * TODO: Implement real event publishing using nostr-java
+     */
+    public void publishEvent(NostrEvent event) {
+        if(!connected) {
+            log.warn("Cannot publish event - not connected to any relays");
+            return;
+        }
+
+        log.info("Publishing event (stub): kind={}, content length={}", event.getKind(), event.getContent().length());
+
+        // TODO Phase 3 Part 3: Implement actual event publishing
+        // - Convert NostrEvent to nostr.event.impl.GenericEvent
+        // - Sign event if needed
+        // - Create EventMessage
+        // - Send to all connected relay clients
+    }
+
+    /**
+     * Subscribe to events matching filters
+     * TODO: Implement real subscription using nostr-java
+     */
+    public void subscribe(String subscriptionId, Map<String, Object> filters) {
+        if(!connected) {
+            log.warn("Cannot subscribe - not connected to any relays");
+            return;
+        }
+
+        log.info("Creating subscription (stub): {}", subscriptionId);
+
+        // TODO Phase 3 Part 3: Implement actual subscription
+        // - Create REQ message with filters
+        // - Send to all relays
+        // - Register message handler for incoming events
+    }
+
+    /**
+     * Unsubscribe from a subscription
+     * TODO: Implement real unsubscribe using nostr-java
+     */
+    public void unsubscribe(String subscriptionId) {
+        if(!connected) {
+            return;
+        }
+
+        log.info("Closing subscription (stub): {}", subscriptionId);
+
+        // TODO Phase 3 Part 3: Send CLOSE message to all relays
     }
 
     /**

@@ -259,18 +259,24 @@ public class CoordinationSessionManager extends Service<Void> {
     }
 
     /**
-     * Handle Nostr message events (TODO Phase 3)
+     * Handle Nostr message events
      */
     @Subscribe
     public void onNostrMessage(NostrMessageReceivedEvent event) {
-        // TODO Phase 3: Parse and handle Nostr coordination messages
-        // - session-create
-        // - session-join
-        // - output-proposal
-        // - fee-proposal
-        // - fee-agreed
-        // - session-finalize
-        log.debug("Received Nostr message: {}", event.getEventData());
+        // TODO Phase 3: Parse and handle Nostr coordination messages based on tags
+        // - session-create: ["d", "session-create"]
+        // - session-join: ["d", "session-join"]
+        // - output-proposal: ["d", "output-proposal"]
+        // - fee-proposal: ["d", "fee-proposal"]
+        // - fee-agreed: ["d", "fee-agreed"]
+        // - session-finalize: ["d", "session-finalize"]
+        log.debug("Received Nostr message: {}", event.getNostrEvent());
+
+        String messageType = event.getNostrEvent().getTagValue("d");
+        if(messageType != null) {
+            log.debug("Coordination message type: {}", messageType);
+            // TODO: Route to appropriate handler based on messageType
+        }
     }
 
     /**
