@@ -1,9 +1,11 @@
 package com.sparrowwallet.sparrow.transaction;
 
+import com.sparrowwallet.drongo.KeyDerivation;
 import com.sparrowwallet.drongo.KeyPurpose;
 import com.sparrowwallet.drongo.SecureString;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.address.Address;
+import com.sparrowwallet.drongo.crypto.ECKey;
 import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.protocol.*;
 import com.sparrowwallet.drongo.psbt.*;
@@ -30,6 +32,8 @@ import com.sparrowwallet.sparrow.payjoin.Payjoin;
 import com.sparrowwallet.sparrow.wallet.Entry;
 import com.sparrowwallet.sparrow.wallet.HashIndexEntry;
 import com.sparrowwallet.sparrow.wallet.TransactionEntry;
+import com.sparrowwallet.sparrow.wallet.UtxoEntry;
+import com.sparrowwallet.sparrow.wallet.WalletUtxosEntry;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableMap;
@@ -246,6 +250,9 @@ public class HeadersController extends TransactionFormController implements Init
 
     @FXML
     private Button payjoinButton;
+
+    @FXML
+    private ToggleButton addInputsButton;
 
     private ElectrumServer.TransactionMempoolService transactionMempoolService;
 
@@ -495,6 +502,8 @@ public class HeadersController extends TransactionFormController implements Init
         signaturesForm.setVisible(false);
         signButtonBox.setVisible(false);
         broadcastButtonBox.setVisible(false);
+        addInputsButton.managedProperty().bind(addInputsButton.visibleProperty());
+        addInputsButton.setVisible(false);
 
         if(headersForm.getBlockTransaction() != null) {
             updateBlockchainForm(headersForm.getBlockTransaction(), AppServices.getCurrentBlockHeight());
@@ -505,6 +514,7 @@ public class HeadersController extends TransactionFormController implements Init
                 signingWalletForm.setVisible(true);
                 sigHashForm.setVisible(true);
                 finalizeButtonBox.setVisible(true);
+                addInputsButton.setVisible(true);
             } else if(headersForm.getPsbt().isSigned()) {
                 signaturesForm.setVisible(true);
                 broadcastButtonBox.setVisible(true);
@@ -512,6 +522,8 @@ public class HeadersController extends TransactionFormController implements Init
                 signingWalletForm.setVisible(true);
                 finalizeButtonBox.setVisible(true);
                 finalizeTransaction.setText("Set Signing Wallet");
+                // Show Add Inputs button for unsigned PSBTs with wallet selected
+                addInputsButton.setVisible(!headersForm.getPsbt().isFinalized());
             }
 
             signingWallet.managedProperty().bind(signingWallet.visibleProperty());
@@ -1087,6 +1099,301 @@ public class HeadersController extends TransactionFormController implements Init
         signDeviceKeystores();
     }
 
+    public void addInputsToPsbt(ActionEvent event) {
+        ToggleButton toggleButton = (ToggleButton)event.getSource();
+        toggleButton.setSelected(false);
+
+        try {
+            // Validate preconditions
+            if(headersForm.getPsbt() == null) {
+                showErrorDialog("No PSBT Loaded", "Please load a PSBT first before adding inputs.");
+                return;
+            }
+
+            // Get all open wallets
+            List<Wallet> openWallets = AppServices.get().getOpenWallets().keySet().stream()
+                .filter(Wallet::isValid)
+                .sorted(Comparator.comparing(Wallet::getFullDisplayName))
+                .collect(Collectors.toList());
+
+            if(openWallets.isEmpty()) {
+                showErrorDialog("No Wallets Open", "Please open a wallet to add inputs from.");
+                return;
+            }
+
+            // Show wallet selection dialog
+            Wallet selectedWallet;
+            if(openWallets.size() == 1) {
+                // If only one wallet is open, use it automatically
+                selectedWallet = openWallets.get(0);
+            } else {
+                // Show dialog to select wallet
+                ChoiceDialog<Wallet> walletDialog = new ChoiceDialog<>(openWallets.get(0), openWallets);
+                walletDialog.setTitle("Select Wallet");
+                walletDialog.setHeaderText("Select wallet to add inputs from:");
+                walletDialog.setContentText("Wallet:");
+                walletDialog.initOwner(addInputsButton.getScene().getWindow());
+
+                Optional<Wallet> walletResult = walletDialog.showAndWait();
+                if(!walletResult.isPresent()) {
+                    return; // User cancelled
+                }
+                selectedWallet = walletResult.get();
+            }
+
+            // Get available UTXOs from the selected wallet
+            WalletUtxosEntry walletUtxosEntry = new WalletUtxosEntry(selectedWallet);
+            if(walletUtxosEntry.getChildren() == null || walletUtxosEntry.getChildren().isEmpty()) {
+                showErrorDialog("No UTXOs Available", "The selected wallet has no available UTXOs to add as inputs.");
+                return;
+            }
+
+            // Show dialog to select UTXOs
+            AddInputsDialog dialog = new AddInputsDialog(selectedWallet);
+            Optional<List<UtxoEntry>> result = dialog.showAndWait();
+
+            if(result.isPresent() && !result.get().isEmpty()) {
+                List<UtxoEntry> selectedUtxos = result.get();
+
+                // Check for duplicate inputs
+                Set<String> existingOutpoints = headersForm.getPsbt().getPsbtInputs().stream()
+                    .map(input -> input.getInput().getOutpoint().toString())
+                    .collect(Collectors.toSet());
+
+                List<UtxoEntry> newUtxos = selectedUtxos.stream()
+                    .filter(utxo -> !existingOutpoints.contains(utxo.getHashIndex().toString()))
+                    .collect(Collectors.toList());
+
+                if(newUtxos.isEmpty()) {
+                    showErrorDialog("Duplicate Inputs", "All selected UTXOs are already inputs in this transaction.");
+                    return;
+                }
+
+                if(newUtxos.size() < selectedUtxos.size()) {
+                    int duplicateCount = selectedUtxos.size() - newUtxos.size();
+                    log.warn("Skipped " + duplicateCount + " duplicate UTXO(s)");
+                }
+
+                // Calculate total value to add
+                long totalValue = newUtxos.stream()
+                    .mapToLong(utxo -> utxo.getHashIndex().getValue())
+                    .sum();
+
+                // Show confirmation
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("Confirm Add Inputs");
+                confirmAlert.setHeaderText("Add " + newUtxos.size() + " input(s) from " + selectedWallet.getFullDisplayName() + "?");
+                confirmAlert.setContentText(
+                    "Total value: " + totalValue + " sats\n\n" +
+                    "This will reconstruct the PSBT with the additional inputs.\n" +
+                    "The fee rate will change based on the new transaction size."
+                );
+                confirmAlert.initOwner(addInputsButton.getScene().getWindow());
+
+                Optional<ButtonType> confirmation = confirmAlert.showAndWait();
+                if(confirmation.isPresent() && confirmation.get() == ButtonType.OK) {
+                    // Reconstruct PSBT with new inputs
+                    PSBT reconstructedPsbt = addInputsToPsbt(headersForm.getPsbt(), newUtxos, selectedWallet);
+
+                    // Update the form
+                    headersForm.setPsbt(reconstructedPsbt);
+
+                    // Refresh the view to show new inputs
+                    initializeView();
+
+                    // Post events to update other parts of the UI
+                    EventManager.get().post(new PSBTReconstructedEvent(reconstructedPsbt));
+                    EventManager.get().post(new TransactionChangedEvent(reconstructedPsbt.getTransaction()));
+
+                    log.info("Successfully added " + newUtxos.size() + " input(s) to PSBT");
+                }
+            }
+        } catch(Exception e) {
+            log.error("Error adding inputs to PSBT", e);
+            showErrorDialog("Error Adding Inputs", "Failed to add inputs to PSBT: " + e.getMessage());
+        }
+    }
+
+    private PSBT addInputsToPsbt(PSBT originalPsbt, List<UtxoEntry> newUtxos, Wallet wallet) throws Exception {
+        Transaction originalTx = originalPsbt.getTransaction();
+
+        // Create new transaction with same version and locktime
+        Transaction newTransaction = new Transaction();
+        newTransaction.setVersion(originalTx.getVersion());
+        newTransaction.setLocktime(originalTx.getLocktime());
+
+        // Add all original inputs first
+        for(TransactionInput input : originalTx.getInputs()) {
+            newTransaction.addInput(input);
+        }
+
+        // Add new inputs from selected UTXOs
+        for(UtxoEntry utxoEntry : newUtxos) {
+            BlockTransactionHashIndex utxo = utxoEntry.getHashIndex();
+            TransactionOutPoint outPoint = new TransactionOutPoint(utxo.getHash(), utxo.getIndex());
+            TransactionInput newInput = new TransactionInput(newTransaction, outPoint, new byte[0]);
+            newTransaction.addInput(newInput);
+        }
+
+        // Add all original outputs
+        for(TransactionOutput output : originalTx.getOutputs()) {
+            newTransaction.addOutput(output);
+        }
+
+        // Create new PSBT from reconstructed transaction
+        PSBT newPsbt = new PSBT(newTransaction);
+
+        // Combine data from original PSBT inputs
+        // This preserves all the PSBTInput data for the original inputs
+        int originalInputCount = originalPsbt.getPsbtInputs().size();
+        for(int i = 0; i < originalInputCount; i++) {
+            PSBTInput originalInput = originalPsbt.getPsbtInputs().get(i);
+            PSBTInput newInput = newPsbt.getPsbtInputs().get(i);
+
+            // Copy all data from original input
+            if(originalInput.getNonWitnessUtxo() != null) {
+                newInput.setNonWitnessUtxo(originalInput.getNonWitnessUtxo());
+            }
+            if(originalInput.getWitnessUtxo() != null) {
+                newInput.setWitnessUtxo(originalInput.getWitnessUtxo());
+            }
+            if(originalInput.getRedeemScript() != null) {
+                newInput.setRedeemScript(originalInput.getRedeemScript());
+            }
+            if(originalInput.getWitnessScript() != null) {
+                newInput.setWitnessScript(originalInput.getWitnessScript());
+            }
+            if(originalInput.getTapInternalKey() != null) {
+                newInput.setTapInternalKey(originalInput.getTapInternalKey());
+            }
+            if(originalInput.getSigHash() != null) {
+                newInput.setSigHash(originalInput.getSigHash());
+            }
+            newInput.getDerivedPublicKeys().putAll(originalInput.getDerivedPublicKeys());
+            newInput.getPartialSignatures().putAll(originalInput.getPartialSignatures());
+            newInput.getTapDerivedPublicKeys().putAll(originalInput.getTapDerivedPublicKeys());
+            if(originalInput.getTapKeyPathSignature() != null) {
+                newInput.setTapKeyPathSignature(originalInput.getTapKeyPathSignature());
+            }
+        }
+
+        // Populate new PSBT inputs with UTXO data
+        for(int i = 0; i < newUtxos.size(); i++) {
+            UtxoEntry utxoEntry = newUtxos.get(i);
+            PSBTInput psbtInput = newPsbt.getPsbtInputs().get(originalInputCount + i);
+            populatePsbtInputFromUtxo(psbtInput, utxoEntry, wallet);
+        }
+
+        // Copy data from original PSBT outputs
+        for(int i = 0; i < originalPsbt.getPsbtOutputs().size(); i++) {
+            PSBTOutput originalOutput = originalPsbt.getPsbtOutputs().get(i);
+            PSBTOutput newOutput = newPsbt.getPsbtOutputs().get(i);
+
+            if(originalOutput.getRedeemScript() != null) {
+                newOutput.setRedeemScript(originalOutput.getRedeemScript());
+            }
+            if(originalOutput.getWitnessScript() != null) {
+                newOutput.setWitnessScript(originalOutput.getWitnessScript());
+            }
+            if(originalOutput.getTapInternalKey() != null) {
+                newOutput.setTapInternalKey(originalOutput.getTapInternalKey());
+            }
+            newOutput.getDerivedPublicKeys().putAll(originalOutput.getDerivedPublicKeys());
+            newOutput.getTapDerivedPublicKeys().putAll(originalOutput.getTapDerivedPublicKeys());
+        }
+
+        // Copy global extended public keys
+        newPsbt.getExtendedPublicKeys().putAll(originalPsbt.getExtendedPublicKeys());
+
+        return newPsbt;
+    }
+
+    private void populatePsbtInputFromUtxo(PSBTInput psbtInput, UtxoEntry utxoEntry, Wallet wallet) throws Exception {
+        BlockTransactionHashIndex utxo = utxoEntry.getHashIndex();
+        WalletNode walletNode = utxoEntry.getNode();
+
+        // Get the UTXO transaction
+        BlockTransaction blockTransaction = wallet.getWalletTransaction(utxo.getHash());
+        if(blockTransaction == null) {
+            throw new IllegalStateException("Cannot find transaction for UTXO: " + utxo);
+        }
+
+        Transaction utxoTx = blockTransaction.getTransaction();
+        TransactionOutput utxoOutput = utxoTx.getOutputs().get((int)utxo.getIndex());
+
+        // Determine script type
+        ScriptType scriptType = wallet.getScriptType();
+
+        // Set witness or non-witness UTXO based on script type
+        if(Arrays.asList(ScriptType.WITNESS_TYPES).contains(scriptType)) {
+            // Witness types (P2WPKH, P2WSH, P2TR) only need the output
+            psbtInput.setWitnessUtxo(utxoOutput);
+
+            // Some hardware wallets may require the full transaction even for witness types
+            // This is a safety measure for compatibility
+            if(wallet.getKeystores().stream().anyMatch(ks -> ks.getSource() == KeystoreSource.HW_USB)) {
+                psbtInput.setNonWitnessUtxo(utxoTx);
+            }
+        } else {
+            // Legacy types (P2PKH, P2SH) need the full transaction
+            psbtInput.setNonWitnessUtxo(utxoTx);
+        }
+
+        // Populate redeem script for P2SH
+        if(ScriptType.P2SH.isScriptType(utxoOutput.getScript())) {
+            Transaction dummyTx = new Transaction();
+            TransactionInput dummyInput = wallet.addDummySpendingInput(dummyTx, walletNode, utxoOutput);
+            Script redeemScript = dummyInput.getScriptSig().getFirstNestedScript();
+            if(redeemScript != null) {
+                psbtInput.setRedeemScript(redeemScript);
+            }
+        }
+
+        // Populate witness script for P2WSH
+        if(scriptType == ScriptType.P2WSH) {
+            Transaction dummyTx = new Transaction();
+            TransactionInput dummyInput = wallet.addDummySpendingInput(dummyTx, walletNode, utxoOutput);
+            if(dummyInput.getWitness() != null) {
+                Script witnessScript = dummyInput.getWitness().getWitnessScript();
+                if(witnessScript != null) {
+                    psbtInput.setWitnessScript(witnessScript);
+                }
+            }
+        }
+
+        // Add BIP32 derivation paths for all keystores
+        Map<ECKey, KeyDerivation> derivedPublicKeys = new LinkedHashMap<>();
+        ECKey tapInternalKey = null;
+
+        for(Keystore keystore : wallet.getKeystores()) {
+            WalletNode addressNode = wallet.getNode(KeyPurpose.RECEIVE).getChildren().stream()
+                .filter(node -> node.equals(walletNode))
+                .findFirst()
+                .or(() -> wallet.getNode(KeyPurpose.CHANGE).getChildren().stream()
+                    .filter(node -> node.equals(walletNode))
+                    .findFirst())
+                .orElse(walletNode);
+
+            ECKey pubKey = wallet.getScriptType().getOutputKey(keystore.getPubKey(addressNode));
+            KeyDerivation keyDerivation = keystore.getKeyDerivation().extend(addressNode.getDerivation());
+            derivedPublicKeys.put(pubKey, keyDerivation);
+
+            // For Taproot, also set the internal key
+            if(wallet.getScriptType() == ScriptType.P2TR) {
+                tapInternalKey = keystore.getPubKey(addressNode);
+            }
+        }
+
+        psbtInput.getDerivedPublicKeys().putAll(derivedPublicKeys);
+
+        if(tapInternalKey != null) {
+            psbtInput.setTapInternalKey(ECKey.fromPublicOnly(tapInternalKey.getPubKeyXCoord()));
+        }
+
+        // Set sighash type (default to ALL unless otherwise specified)
+        psbtInput.setSigHash(SigHash.ALL);
+    }
+
     private void signSoftwareKeystores() {
         if(headersForm.getSigningWallet().getKeystores().stream().noneMatch(Keystore::hasPrivateKey)) {
             return;
@@ -1567,8 +1874,11 @@ public class HeadersController extends TransactionFormController implements Init
                     if(headersForm.getPsbt().isSigned()) {
                         finalizePSBT();
                         broadcastButtonBox.setVisible(true);
+                        addInputsButton.setVisible(false);
                     } else {
                         signButtonBox.setVisible(true);
+                        // Show Add Inputs button for unsigned PSBTs
+                        addInputsButton.setVisible(!headersForm.getPsbt().isFinalized());
                     }
                 } else {
                     if(availableWallets.contains(headersForm.getSigningWallet())) {
@@ -1580,6 +1890,9 @@ public class HeadersController extends TransactionFormController implements Init
                     signingWallet.setVisible(true);
                     finalizeTransaction.setDisable(false);
                     signButton.setDisable(false);
+                    // Show signButtonBox and Add Inputs button for non-finalized PSBTs
+                    signButtonBox.setVisible(true);
+                    addInputsButton.setVisible(!headersForm.getPsbt().isFinalized());
                 }
             } else {
                 if(headersForm.getPsbt().isSigned()) {

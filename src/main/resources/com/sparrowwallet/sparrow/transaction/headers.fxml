@@ -297,6 +297,11 @@
                             </ToggleButton>
                         </buttons>
                     </SegmentedButton>
+                    <ToggleButton fx:id="addInputsButton" HBox.hgrow="ALWAYS" text="Add Inputs" contentDisplay="TOP" wrapText="true" textAlignment="CENTER" onAction="#addInputsToPsbt">
+                        <graphic>
+                            <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="PLUS_CIRCLE" />
+                        </graphic>
+                    </ToggleButton>
                     <Button fx:id="signButton" defaultButton="true" HBox.hgrow="ALWAYS" text="Sign" contentDisplay="TOP" wrapText="true" textAlignment="CENTER" onAction="#signPSBT">
                         <graphic>
                             <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="PEN_FANCY" />

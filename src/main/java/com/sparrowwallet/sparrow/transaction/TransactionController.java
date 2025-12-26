@@ -663,6 +663,12 @@ public class TransactionController implements Initializable {
     }
 
     @Subscribe
+    public void psbtReconstructed(PSBTReconstructedEvent event) {
+        // Refresh the transaction tree view to show new inputs
+        txtree.refresh();
+    }
+
+    @Subscribe
     public void tabSelected(TransactionTabSelectedEvent event) {
 
     }
