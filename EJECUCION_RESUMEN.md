@@ -71,10 +71,15 @@
 ```bash
 ./gradlew test --tests CoordinationIntegrationTest
 ```
-✅ **3 tests**:
-- testFullCoordinationWorkflow - Workflow completo
-- testDuplicateOutputRejection - Rechazo de outputs duplicados
-- testSessionExpiration - Expiración de sesiones
+✅ **ALL 3 TESTS PASSING**:
+- testFullCoordinationWorkflow ✅ - Workflow completo
+- testDuplicateOutputRejection ✅ - Rechazo silencioso de outputs duplicados
+- testSessionExpiration ✅ - Expiración de sesiones
+
+**Última corrección**: 2025-12-26
+- Configuración de Network.TESTNET para parsing de direcciones
+- Parsing case-insensitive de network enum
+- Cambio de exception a silent reject en duplicados
 
 ## 🖥️ Ejecución en Modo Gráfico
 
