@@ -1,4 +1,30 @@
-# Sparrow Bitcoin Wallet
+# ⚠️ EXPERIMENTAL FORK - DO NOT USE WITH REAL FUNDS ⚠️
+
+This is an **experimental fork** of [Sparrow Wallet](https://github.com/sparrowwallet/sparrow) by [Craig Raw](https://github.com/craigraw).
+
+**WARNING:** This software is under active development and includes experimental features for collaborative Bitcoin transactions. **DO NOT USE WITH REAL FUNDS.** Use only on testnet/signet for research and testing purposes.
+
+## About This Fork
+
+Sparrow Browser is exploring collaborative transaction features including:
+- Multi-party transaction coordination via Nostr protocol
+- Pre-PSBT coordination for proper change calculation
+- Decentralized P2P messaging for output/fee negotiation
+- Future: Full P2P marketplace for Bitcoin goods and services
+
+## Original Project
+
+For production use, please use the official [Sparrow Wallet](https://sparrowwallet.com) by Craig Raw.
+
+- Official repository: https://github.com/sparrowwallet/sparrow
+- Official website: https://sparrowwallet.com
+- Original author: Craig Raw ([@craigraw](https://twitter.com/craigraw))
+
+For more information about the collaborative features in this fork, see [COLLABORATIVE_FEATURES.md](COLLABORATIVE_FEATURES.md).
+
+---
+
+# Sparrow Bitcoin Wallet (Original README)
 
 Sparrow is a modern desktop Bitcoin wallet application supporting most hardware wallets and built on common standards such as PSBT, with an emphasis on transparency and usability.
 
@@ -8,13 +34,13 @@ More information (and release binaries) can be found at https://sparrowwallet.co
 
 ## Building
 
-To clone this project, use
+To clone this fork, use
 
-`git clone --recursive git@github.com:sparrowwallet/sparrow.git`
+`git clone --recursive git@github.com:dakotad74/sparrow_browser.git`
 
 or for those without SSH credentials:
 
-`git clone --recursive https://github.com/sparrowwallet/sparrow.git`
+`git clone --recursive https://github.com/dakotad74/sparrow_browser.git`
 
 In order to build, Sparrow requires Java 22 or higher to be installed. 
 The release binaries are built with [Eclipse Temurin 22.0.2+9](https://github.com/adoptium/temurin22-binaries/releases/tag/jdk-22.0.2%2B9).
