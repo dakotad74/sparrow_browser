@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.coordination.CoordinationController"
+            styleClass="coordination-dialog">
+
+    <top>
+        <VBox spacing="10" styleClass="header-section">
+            <padding>
+                <Insets top="20" right="20" bottom="10" left="20"/>
+            </padding>
+
+            <!-- Step indicator -->
+            <Label fx:id="stepLabel"
+                   text="Create or Join Session"
+                   styleClass="step-title"/>
+
+            <Separator/>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Dynamic content pane - steps will be loaded here -->
+        <StackPane fx:id="contentPane" styleClass="content-pane">
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+        </StackPane>
+    </center>
+
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT" styleClass="button-bar">
+            <padding>
+                <Insets top="10" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <Button fx:id="backButton"
+                    text="Back"
+                    styleClass="secondary-button"
+                    disable="true"/>
+
+            <Button fx:id="nextButton"
+                    text="Next"
+                    styleClass="primary-button"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

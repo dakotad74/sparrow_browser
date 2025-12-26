@@ -1,0 +1,376 @@
+./gradlew compileJava
+Starting a Gradle Daemon (subsequent builds will be faster)
+
+> Task :compileJava
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/PaymentController.java:393: error: cannot find symbol
+            sendController.getCreateButton().setDisable(sendController.getWalletTransaction() == null || newValue == null || newValue.isEmpty() || sendController.isInsufficientFeeRate());
+                                                                                                                                                                 ^
+  symbol:   method isInsufficientFeeRate()
+  location: variable sendController of type SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:187: error: cannot find symbol
+                setFiatFeeAmount(AppServices.getFiatCurrencyExchangeRate(), getFeeValueSats());
+                                                                            ^
+  symbol: method getFeeValueSats()
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:190: error: cannot find symbol
+            setTargetBlocks(getTargetBlocks());
+                            ^
+  symbol: method getTargetBlocks()
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:198: error: cannot find symbol
+            Map<Integer, Double> targetBlocksFeeRates = getTargetBlocksFeeRates();
+                                                        ^
+  symbol: method getTargetBlocksFeeRates()
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:199: error: cannot find symbol
+            Integer target = getTargetBlocks();
+                             ^
+  symbol: method getTargetBlocks()
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:223: error: cannot find symbol
+            setFeeRate(getFeeRangeRate());
+                       ^
+  symbol: method getFeeRangeRate()
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:234: error: cannot find symbol
+        notificationButton.setDisable(walletTransactionProperty.get() == null || isInsufficientFeeRate() || !newValue);
+                                                                                 ^
+  symbol:   method isInsufficientFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:313: error: cannot find symbol
+        Map<Integer, Double> targetBlocksFeeRates = getTargetBlocksFeeRates();
+                                                    ^
+  symbol:   method getTargetBlocksFeeRates()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:340: error: cannot find symbol
+                setTargetBlocks(getTargetBlocks(getFeeRangeRate()));
+                                                ^
+  symbol:   method getFeeRangeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:343: error: cannot find symbol
+                setFeeRangeRate(getTargetBlocksFeeRates().get(getTargetBlocks()));
+                                ^
+  symbol:   method getTargetBlocksFeeRates()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:343: error: cannot find symbol
+                setFeeRangeRate(getTargetBlocksFeeRates().get(getTargetBlocks()));
+                                                              ^
+  symbol:   method getTargetBlocks()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:352: error: cannot find symbol
+        setDefaultFeeRate();
+        ^
+  symbol:   method setDefaultFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:370: error: cannot find symbol
+            Long value = getFeeValueSats(oldValue);
+                         ^
+  symbol:   method getFeeValueSats(BitcoinUnit)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:372: error: cannot find symbol
+                setFeeValueSats(value);
+                ^
+  symbol:   method setFeeValueSats(Long)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:408: error: cannot find symbol
+                    setTargetBlocks(getTargetBlocks(feeRate));
+                                    ^
+  symbol:   method getTargetBlocks(double)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:409: error: cannot find symbol
+                    setFeeRangeRate(feeRate);
+                    ^
+  symbol:   method setFeeRangeRate(double)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:412: error: cannot find symbol
+                    setFeeValueSats(walletTransaction.getFee());
+                    ^
+  symbol:   method setFeeValueSats(long)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:425: error: cannot find symbol
+                    hideInsufficientFundsWarning();
+                    ^
+  symbol:   method hideInsufficientFundsWarning()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:495: error: cannot find symbol
+                (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Fee Rate", isInsufficientFeeRate())
+                                                                                                          ^
+  symbol:   method isInsufficientFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:609: error: cannot find symbol
+            walletTransactionService.setIgnoreResult(true);
+                                    ^
+  symbol:   method setIgnoreResult(boolean)
+  location: variable walletTransactionService of type WalletTransactionService
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:616: error: cannot find symbol
+            if(!userFeeSet.get() || getFeeValueSats() != null) {
+                                    ^
+  symbol:   method getFeeValueSats()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:618: error: cannot find symbol
+                Long userFee = userFeeSet.get() ? getFeeValueSats() : null;
+                                                  ^
+  symbol:   method getFeeValueSats()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:619: error: cannot find symbol
+                double feeRate = getUserFeeRate();
+                                 ^
+  symbol:   method getUserFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:630: error: cannot find symbol
+                TransactionParameters params = new TransactionParameters(getUtxoSelectors(payments), getTxoFilters(),
+                                                                                                     ^
+  symbol:   method getTxoFilters()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:636: error: cannot find symbol
+                    if(!walletTransactionService.isIgnoreResult()) {
+                                                ^
+  symbol:   method isIgnoreResult()
+  location: variable walletTransactionService of type WalletTransactionService
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:642: error: cannot find symbol
+                    if(!walletTransactionService.isIgnoreResult()) {
+                                                ^
+  symbol:   method isIgnoreResult()
+  location: variable walletTransactionService of type WalletTransactionService
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:680: error: cannot find symbol
+        long noInputsFee = wallet.getNoInputsFee(getPayments(), getUserFeeRate());
+                                                                ^
+  symbol:   method getUserFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:681: error: cannot find symbol
+        long costOfChange = wallet.getCostOfChange(getUserFeeRate(), getMinimumFeeRate());
+                                                   ^
+  symbol:   method getUserFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:732: error: non-static variable replacedTransactionProperty cannot be referenced from a static context
+        SpentTxoFilter spentTxoFilter = new SpentTxoFilter(replacedTransactionProperty.get() == null ? null : replacedTransactionProperty.get().getHash());
+                                                           ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:732: error: non-static variable replacedTransactionProperty cannot be referenced from a static context
+        SpentTxoFilter spentTxoFilter = new SpentTxoFilter(replacedTransactionProperty.get() == null ? null : replacedTransactionProperty.get().getHash());
+                                                                                                              ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:734: error: non-static variable txoFilterProperty cannot be referenced from a static context
+        TxoFilter txoFilter = txoFilterProperty.get();
+                              ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:736: error: non-static method getWalletForm() cannot be referenced from a static context
+            return List.of(txoFilter, spentTxoFilter, new FrozenTxoFilter(), new CoinbaseTxoFilter(getWalletForm().getWallet()));
+                                                                                                   ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:739: error: non-static method getWalletForm() cannot be referenced from a static context
+        return List.of(spentTxoFilter, new FrozenTxoFilter(), new CoinbaseTxoFilter(getWalletForm().getWallet()));
+                                                                                    ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:746: error: non-static variable targetBlocks cannot be referenced from a static context
+        targetBlocks.setValue(index);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:747: error: non-static variable blockTargetFeeRatesChart cannot be referenced from a static context
+        blockTargetFeeRatesChart.select(defaultTarget);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:748: error: non-static variable recentBlocksView cannot be referenced from a static context
+        recentBlocksView.updateFeeRate(defaultRate);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:750: error: non-static method setFeeRate(Double) cannot be referenced from a static context
+        setFeeRate(getFeeRangeRate());
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:753: error: non-static variable updateDefaultFeeRate cannot be referenced from a static context
+            updateDefaultFeeRate = true;
+            ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:758: error: non-static variable feeAmountUnit cannot be referenced from a static context
+        return getFeeValueSats(feeAmountUnit.getSelectionModel().getSelectedItem());
+                               ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:766: error: non-static variable fee cannot be referenced from a static context
+        if(fee.getText() != null && !fee.getText().isEmpty()) {
+           ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:766: error: non-static variable fee cannot be referenced from a static context
+        if(fee.getText() != null && !fee.getText().isEmpty()) {
+                                     ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:768: error: non-static variable fee cannot be referenced from a static context
+            double fieldValue = Double.parseDouble(fee.getText().replaceAll(Pattern.quote(format.getGroupingSeparator()), "").replaceAll(",", "."));
+                                                   ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:776: error: non-static variable feeListener cannot be referenced from a static context
+        fee.textProperty().removeListener(feeListener);
+                                          ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:776: error: non-static variable fee cannot be referenced from a static context
+        fee.textProperty().removeListener(feeListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:780: error: non-static variable fee cannot be referenced from a static context
+        fee.setText(df.format(feeAmountUnit.getValue().getValue(feeValue)));
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:780: error: non-static variable feeAmountUnit cannot be referenced from a static context
+        fee.setText(df.format(feeAmountUnit.getValue().getValue(feeValue)));
+                              ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:781: error: non-static variable feeListener cannot be referenced from a static context
+        fee.textProperty().addListener(feeListener);
+                                       ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:781: error: non-static variable fee cannot be referenced from a static context
+        fee.textProperty().addListener(feeListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:782: error: non-static method setFiatFeeAmount(CurrencyRate,Long) cannot be referenced from a static context
+        setFiatFeeAmount(AppServices.getFiatCurrencyExchangeRate(), feeValue);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:786: error: non-static variable targetBlocks cannot be referenced from a static context
+        int index = (int)targetBlocks.getValue();
+                         ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:807: error: non-static variable targetBlocksListener cannot be referenced from a static context
+        targetBlocks.valueProperty().removeListener(targetBlocksListener);
+                                                    ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:807: error: non-static variable targetBlocks cannot be referenced from a static context
+        targetBlocks.valueProperty().removeListener(targetBlocksListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:809: error: non-static variable targetBlocks cannot be referenced from a static context
+        targetBlocks.setValue(index);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:810: error: non-static variable blockTargetFeeRatesChart cannot be referenced from a static context
+        blockTargetFeeRatesChart.select(target);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:812: error: non-static variable targetBlocks cannot be referenced from a static context
+        targetBlocks.setTooltip(tooltip);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:813: error: non-static variable targetBlocksListener cannot be referenced from a static context
+        targetBlocks.valueProperty().addListener(targetBlocksListener);
+                                                 ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:813: error: non-static variable targetBlocks cannot be referenced from a static context
+        targetBlocks.valueProperty().addListener(targetBlocksListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:828: error: non-static variable feeRange cannot be referenced from a static context
+        return feeRange.getFeeRate();
+               ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:832: error: non-static variable feeRangeListener cannot be referenced from a static context
+        feeRange.valueProperty().removeListener(feeRangeListener);
+                                                ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:832: error: non-static variable feeRange cannot be referenced from a static context
+        feeRange.valueProperty().removeListener(feeRangeListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:833: error: non-static variable feeRange cannot be referenced from a static context
+        feeRange.setFeeRate(feeRate);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:834: error: non-static variable feeRangeListener cannot be referenced from a static context
+        feeRange.valueProperty().addListener(feeRangeListener);
+                                             ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:834: error: non-static variable feeRange cannot be referenced from a static context
+        feeRange.valueProperty().addListener(feeRangeListener);
+        ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:845: error: non-static variable userFeeSet cannot be referenced from a static context
+        return (userFeeSet.get() ? AppServices.getMinimumRelayFeeRate() : getFeeRate());
+                ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:849: error: non-static variable targetBlocksField cannot be referenced from a static context
+        if(targetBlocksField.isVisible()) {
+           ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:871: error: non-static variable walletTransactionProperty cannot be referenced from a static context
+    WalletTransaction walletTx = walletTransactionProperty.get();
+                                 ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:877: error: non-static method areOutputsGreaterThanInputs(WalletTransaction) cannot be referenced from a static context
+    if(areOutputsGreaterThanInputs(walletTx)) {
+       ^
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:919: error: cannot find symbol
+        Map<Integer, Double> targetBlocksFeeRates = getTargetBlocksFeeRates();
+                                                    ^
+  symbol:   method getTargetBlocksFeeRates()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:940: error: cannot find symbol
+        Integer targetBlocks = getTargetBlocks(feeRateAmt);
+                               ^
+  symbol:   method getTargetBlocks(Double)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1071: error: cannot find symbol
+        setDefaultFeeRate();
+        ^
+  symbol:   method setDefaultFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1226: error: cannot find symbol
+            Long userFee = userFeeSet.get() ? getFeeValueSats() : null;
+                                              ^
+  symbol:   method getFeeValueSats()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1227: error: cannot find symbol
+            double feeRate = getUserFeeRate();
+                             ^
+  symbol:   method getUserFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1233: error: cannot find symbol
+            TransactionParameters params = new TransactionParameters(utxoSelectors, getTxoFilters(), walletTransaction.getPayments(), List.of(blindedPaymentCode),
+                                                                                    ^
+  symbol:   method getTxoFilters()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1416: error: cannot find symbol
+        blockTargetFeeRatesChart.select(getTargetBlocks());
+                                        ^
+  symbol:   method getTargetBlocks()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1418: error: cannot find symbol
+            setFeeRate(event.getTargetBlockFeeRates().get(getTargetBlocks()));
+                                                          ^
+  symbol:   method getTargetBlocks()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1420: error: cannot find symbol
+            setFeeRatePriority(getFeeRangeRate());
+                               ^
+  symbol:   method getFeeRangeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1431: error: cannot find symbol
+            if(getFeeRate() != null && Long.valueOf((long)getFallbackFeeRate()).equals(getFeeRate().longValue())) {
+               ^
+  symbol:   method getFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1431: error: cannot find symbol
+            if(getFeeRate() != null && Long.valueOf((long)getFallbackFeeRate()).equals(getFeeRate().longValue())) {
+                                                                                       ^
+  symbol:   method getFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1432: error: cannot find symbol
+                setDefaultFeeRate();
+                ^
+  symbol:   method setDefaultFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1475: error: cannot find symbol
+                setFeeValueSats(event.getFee());
+                ^
+  symbol:   method setFeeValueSats(Long)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1520: error: cannot find symbol
+        setFeeRate(getFeeRate());
+                   ^
+  symbol:   method getFeeRate()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1522: error: cannot find symbol
+            Long value = getFeeValueSats(coinTextFormatter.getUnitFormat(), feeAmountUnit.getSelectionModel().getSelectedItem());
+                         ^
+  symbol:   method getFeeValueSats(UnitFormat,BitcoinUnit)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1526: error: cannot find symbol
+                setFeeValueSats(value);
+                ^
+  symbol:   method setFeeValueSats(Long)
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1545: error: cannot find symbol
+        setFiatFeeAmount(event.getCurrencyRate(), getFeeValueSats());
+                                                  ^
+  symbol:   method getFeeValueSats()
+  location: class SendController
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1741: error: cannot find symbol
+                return input.getValue();
+                            ^
+  symbol:   method getValue()
+  location: variable input of type TransactionInput
+/home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/SendController.java:1770: error: cannot find symbol
+                return input.getValue();
+                            ^
+  symbol:   method getValue()
+  location: variable input of type TransactionInput
+86 errors
+
+> Task :compileJava FAILED
+
+[Incubating] Problems report is available at: file:///home/r2d2/Desarrollo/SparrowDev/sparrow/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler output below.
+  /home/r2d2/Desarrollo/SparrowDev/sparrow/src/main/java/com/sparrowwallet/sparrow/wallet/PaymentController.java:393: error: cannot find symbol
+              sendController.getCreateButton().setDisable(sendController.getWalletTransaction() == null || newValue == null || newValue.isEmpty() || sendController.isInsufficientFeeRate());
+                                                                                                                                                                   ^
+    symbol:   method isInsufficientFeeRate()
+    location: variable sendController of type SendController
+  86 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+
+BUILD FAILED in 11s
+11 actionable tasks: 1 executed, 10 up-to-date
+

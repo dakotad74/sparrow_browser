@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.sparrowwallet.sparrow.coordination.SessionStartController"
+      spacing="20"
+      alignment="TOP_CENTER"
+      VBox.vgrow="ALWAYS">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Would you like to create a new coordination session or join an existing one?"
+           wrapText="true"
+           styleClass="instruction-text">
+        <padding>
+            <Insets bottom="20"/>
+        </padding>
+    </Label>
+
+    <!-- Create Session Option -->
+    <VBox spacing="15" styleClass="option-card">
+        <padding>
+            <Insets top="20" right="20" bottom="20" left="20"/>
+        </padding>
+
+        <Label text="Create New Session" styleClass="option-title"/>
+
+        <Label text="Start a new coordination session and invite other participants to join"
+               wrapText="true"
+               styleClass="option-description"/>
+
+        <Separator/>
+
+        <Label text="Number of expected participants:"/>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Spinner fx:id="participantCountSpinner"
+                     min="2"
+                     max="15"
+                     initialValue="2"
+                     editable="true"
+                     prefWidth="100"/>
+
+            <Label text="participants (including you)"/>
+        </HBox>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="10"/>
+            </padding>
+
+            <Button fx:id="createSessionButton"
+                    text="Create Session"
+                    styleClass="primary-button"
+                    onAction="#createSession"/>
+        </HBox>
+    </VBox>
+
+    <!-- Join Session Option -->
+    <VBox spacing="15" styleClass="option-card">
+        <padding>
+            <Insets top="20" right="20" bottom="20" left="20"/>
+        </padding>
+
+        <Label text="Join Existing Session" styleClass="option-title"/>
+
+        <Label text="Join a coordination session using a session ID or QR code"
+               wrapText="true"
+               styleClass="option-description"/>
+
+        <Separator/>
+
+        <Label text="Session ID:"/>
+
+        <TextField fx:id="sessionIdField"
+                   promptText="Enter session ID (e.g., 550e8400-e29b-41d4-a716-446655440000)"/>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="scanQRButton"
+                    text="Scan QR Code"
+                    onAction="#scanQRCode"/>
+
+            <Button fx:id="joinSessionButton"
+                    text="Join Session"
+                    styleClass="primary-button"
+                    onAction="#joinSession"
+                    disable="true"/>
+        </HBox>
+    </VBox>
+
+    <!-- Wallet Info -->
+    <VBox spacing="5" styleClass="info-card">
+        <padding>
+            <Insets top="10" right="10" bottom="10" left="10"/>
+        </padding>
+
+        <Label text="Current Wallet:"/>
+        <Label fx:id="walletNameLabel" styleClass="wallet-name"/>
+        <Label fx:id="walletTypeLabel" styleClass="wallet-type"/>
+    </VBox>
+
+</VBox>

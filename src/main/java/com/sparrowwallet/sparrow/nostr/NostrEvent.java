@@ -1,29 +1,43 @@
 package com.sparrowwallet.sparrow.nostr;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Represents a Nostr event for coordination messages.
- * Simplified wrapper around nostr-java event types for Phase 3.
  *
- * Nostr event structure:
- * - id: Event ID (32-byte hex string)
- * - pubkey: Public key of event creator (32-byte hex string)
- * - created_at: Unix timestamp
- * - kind: Event kind (integer)
- * - tags: Array of tag arrays
- * - content: Event content (string, may be JSON or encrypted)
- * - sig: Signature (64-byte hex string)
+ * Implements NIP-01: Basic protocol event structure
+ *
+ * Nostr event structure (JSON):
+ * {
+ *   "id": <32-byte hex string>,
+ *   "pubkey": <32-byte hex string>,
+ *   "created_at": <unix timestamp>,
+ *   "kind": <integer>,
+ *   "tags": [["tag_name", "value1", "value2"], ...],
+ *   "content": <string>,
+ *   "sig": <64-byte hex string>
+ * }
+ *
+ * This class uses Gson's @SerializedName to map Java camelCase to JSON snake_case.
  */
 public class NostrEvent {
     private String id;
+
     private String pubkey;
+
+    @SerializedName("created_at")
     private long createdAt;
+
     private int kind;
+
     private List<List<String>> tags;
+
     private String content;
+
     private String sig;
 
     /**

@@ -9,6 +9,7 @@ import com.sparrowwallet.drongo.address.Address;
 import com.sparrowwallet.drongo.bip47.PaymentCode;
 import com.sparrowwallet.drongo.bip47.SecretPoint;
 import com.sparrowwallet.drongo.crypto.ECKey;
+import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.protocol.*;
 import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.silentpayments.SilentPayment;
@@ -150,6 +151,9 @@ public class SendController extends WalletFormController implements Initializabl
 
     @FXML
     private Button createButton;
+
+    @FXML
+    private Button coordinateButton;
 
     @FXML
     private Button notificationButton;
@@ -1215,6 +1219,46 @@ public class SendController extends WalletFormController implements Initializabl
         field.setText(amt);
         field.positionCaret(caret);
         field.textProperty().addListener(listener);
+    }
+
+    public void coordinateTransaction(ActionEvent event) {
+        Wallet wallet = getWalletForm().getWallet();
+
+        // Check if wallet is suitable for coordination
+        if(wallet.getPolicyType() == PolicyType.SINGLE) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Coordination Not Recommended");
+            alert.setHeaderText("Single-Signature Wallet");
+            alert.setContentText("Transaction coordination is designed for multi-signature wallets.\n\n" +
+                               "While you can proceed, coordination is most useful when multiple parties " +
+                               "need to contribute inputs to a shared transaction.");
+            alert.initOwner(paymentTabs.getScene().getWindow());
+            alert.showAndWait();
+        }
+
+        // Open coordination dialog
+        try {
+            CoordinationDialog dialog = new CoordinationDialog(wallet);
+            dialog.initOwner(paymentTabs.getScene().getWindow());
+            Optional<PSBT> result = dialog.showAndWait();
+
+            if(result.isPresent()) {
+                // User created a coordinated PSBT - display it
+                PSBT psbt = result.get();
+                EventManager.get().post(new ViewPSBTEvent(coordinateButton.getScene().getWindow(),
+                                                         "Coordinated Transaction",
+                                                         null,
+                                                         psbt));
+            }
+        } catch(Exception e) {
+            log.error("Failed to open coordination dialog", e);
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Coordination Error");
+            alert.setHeaderText("Failed to Open Coordination Dialog");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.initOwner(paymentTabs.getScene().getWindow());
+            alert.showAndWait();
+        }
     }
 
     public void createTransaction(ActionEvent event) {

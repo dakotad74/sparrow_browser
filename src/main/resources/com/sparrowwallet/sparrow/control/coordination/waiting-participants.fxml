@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.coordination.WaitingParticipantsController"
+            styleClass="waiting-participants-step">
+
+    <center>
+        <VBox spacing="20" alignment="CENTER">
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <Label text="Waiting for Participants"
+                   styleClass="step-title"/>
+
+            <Label text="Share the QR code below with other participants to join this coordination session"
+                   wrapText="true"
+                   styleClass="instruction-text"/>
+
+            <!-- QR Code Display -->
+            <VBox spacing="10" alignment="CENTER" styleClass="qr-container">
+                <Label fx:id="sessionIdLabel" text="Session ID: Loading..." styleClass="session-id-label"/>
+
+                <!-- QR Code will be displayed here -->
+                <StackPane fx:id="qrCodeContainer" styleClass="qr-code-pane">
+                    <Label text="QR Code will be displayed here" styleClass="placeholder-text"/>
+                </StackPane>
+
+                <Button fx:id="copySessionIdButton" text="Copy Session ID" styleClass="secondary-button" onAction="#copySessionId"/>
+            </VBox>
+
+            <Separator/>
+
+            <!-- Participant List -->
+            <VBox spacing="10" styleClass="participant-list-container">
+                <Label text="Participants:" styleClass="section-label"/>
+
+                <TreeTableView fx:id="participantsTable" styleClass="participant-table">
+                    <columns>
+                        <TreeTableColumn fx:id="participantColumn" text="Participant" prefWidth="200"/>
+                        <TreeTableColumn fx:id="statusColumn" text="Status" prefWidth="150"/>
+                        <TreeTableColumn fx:id="joinedAtColumn" text="Joined At" prefWidth="150"/>
+                    </columns>
+                </TreeTableView>
+
+                <Label fx:id="participantCountLabel" text="0 / 0 participants joined" styleClass="count-label"/>
+            </VBox>
+
+            <!-- Status Message -->
+            <Label fx:id="statusLabel" text="Waiting for participants to join..." styleClass="status-text"/>
+
+        </VBox>
+    </center>
+
+</BorderPane>

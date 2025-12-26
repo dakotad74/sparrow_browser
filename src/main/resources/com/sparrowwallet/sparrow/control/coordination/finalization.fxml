@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.coordination.FinalizationController"
+            styleClass="finalization-step">
+
+    <top>
+        <VBox spacing="10">
+            <padding>
+                <Insets top="10" right="20" bottom="10" left="20"/>
+            </padding>
+
+            <Label text="Finalize and Create PSBT"
+                   styleClass="step-title"/>
+
+            <Label text="Review the coordinated transaction details and create the Partially Signed Bitcoin Transaction (PSBT)."
+                   wrapText="true"
+                   styleClass="instruction-text"/>
+
+            <Separator/>
+        </VBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true" styleClass="summary-scroll">
+            <VBox spacing="20">
+                <padding>
+                    <Insets top="10" right="20" bottom="10" left="20"/>
+                </padding>
+
+                <!-- Transaction Summary -->
+                <VBox spacing="10" styleClass="summary-section">
+                    <Label text="Transaction Summary" styleClass="section-title"/>
+
+                    <GridPane hgap="15" vgap="10" styleClass="summary-grid">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="30"/>
+                            <ColumnConstraints percentWidth="70"/>
+                        </columnConstraints>
+
+                        <Label text="Session ID:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <Label fx:id="sessionIdLabel" text="Loading..." styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="Participants:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <Label fx:id="participantCountLabel" text="0" styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                        <Label text="Output Count:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <Label fx:id="outputCountLabel" text="0" styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                        <Label text="Total Amount:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                        <Label fx:id="totalAmountLabel" text="0.00000000 BTC" styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                        <Label text="Agreed Fee Rate:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                        <Label fx:id="feeRateLabel" text="0 sat/vB" styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+
+                        <Label text="Estimated Fee:" styleClass="label-key" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                        <Label fx:id="estimatedFeeLabel" text="~0.00000000 BTC" styleClass="label-value" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+                    </GridPane>
+                </VBox>
+
+                <Separator/>
+
+                <!-- Output Details -->
+                <VBox spacing="10" styleClass="outputs-section">
+                    <Label text="Transaction Outputs" styleClass="section-title"/>
+
+                    <ListView fx:id="outputsList" styleClass="outputs-list" prefHeight="200">
+                        <placeholder>
+                            <Label text="No outputs proposed"/>
+                        </placeholder>
+                    </ListView>
+                </VBox>
+
+                <Separator/>
+
+                <!-- Participant Details -->
+                <VBox spacing="10" styleClass="participants-section">
+                    <Label text="Participants" styleClass="section-title"/>
+
+                    <ListView fx:id="participantsList" styleClass="participants-list" prefHeight="150">
+                        <placeholder>
+                            <Label text="No participants"/>
+                        </placeholder>
+                    </ListView>
+                </VBox>
+
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <VBox spacing="15" styleClass="action-section">
+            <padding>
+                <Insets top="15" right="20" bottom="15" left="20"/>
+            </padding>
+
+            <Separator/>
+
+            <!-- PSBT Creation -->
+            <VBox spacing="10" alignment="CENTER">
+                <Label fx:id="statusLabel" text="Ready to create PSBT" styleClass="status-text"/>
+
+                <HBox spacing="10" alignment="CENTER">
+                    <Button fx:id="createPSBTButton"
+                            text="Create PSBT"
+                            styleClass="primary-button"
+                            prefWidth="150"
+                            onAction="#createPSBT"/>
+                </HBox>
+
+                <ProgressBar fx:id="progressBar" prefWidth="400" visible="false"/>
+                <Label fx:id="progressLabel" text="" styleClass="progress-text" visible="false"/>
+            </VBox>
+
+            <!-- Info Message -->
+            <Label text="Once created, the PSBT will contain your inputs. Other participants will add their inputs and you'll combine the PSBTs before signing."
+                   wrapText="true"
+                   styleClass="info-text"/>
+
+        </VBox>
+    </bottom>
+
+</BorderPane>
