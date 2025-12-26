@@ -1,11 +1,14 @@
 package com.sparrowwallet.sparrow.coordination;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.gson.Gson;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.address.Address;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.EventManager;
 import com.sparrowwallet.sparrow.event.*;
+import com.sparrowwallet.sparrow.nostr.NostrEvent;
+import com.sparrowwallet.sparrow.nostr.NostrRelayManager;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import org.slf4j.Logger;
@@ -25,13 +28,33 @@ public class CoordinationSessionManager extends Service<Void> {
 
     private final Map<String, CoordinationSession> sessions;
     private final Map<String, Wallet> sessionWallets;
+    private NostrRelayManager nostrRelayManager;
+    private final Gson gson;
+
+    // TODO: Generate or load from wallet's signing key
+    private String myNostrPubkey = "temporary-pubkey-placeholder";
 
     public CoordinationSessionManager() {
         this.sessions = new ConcurrentHashMap<>();
         this.sessionWallets = new ConcurrentHashMap<>();
+        this.gson = new Gson();
 
         // Register for event bus
         EventManager.get().register(this);
+    }
+
+    /**
+     * Set the Nostr relay manager for publishing events
+     */
+    public void setNostrRelayManager(NostrRelayManager relayManager) {
+        this.nostrRelayManager = relayManager;
+    }
+
+    /**
+     * Set the user's Nostr public key (derived from wallet signing key)
+     */
+    public void setMyNostrPubkey(String pubkey) {
+        this.myNostrPubkey = pubkey;
     }
 
     @Override
@@ -86,7 +109,8 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Coordination session created: {}", sessionId);
 
-        // TODO Phase 3: Publish session-create event to Nostr
+        // Publish session-create event to Nostr
+        publishSessionCreateEvent(session);
 
         return session;
     }
@@ -121,7 +145,8 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Participant joined session: {}", sessionId);
 
-        // TODO Phase 3: Publish session-join event to Nostr
+        // Publish session-join event to Nostr
+        publishSessionJoinEvent(sessionId, participant);
     }
 
     /**
@@ -149,7 +174,8 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Output proposed for session: {}", sessionId);
 
-        // TODO Phase 3: Publish output-proposal event to Nostr
+        // Publish output-proposal event to Nostr
+        publishOutputProposalEvent(sessionId, output);
     }
 
     /**
@@ -171,6 +197,9 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Fee proposed for session: {}", sessionId);
 
+        // Publish fee-proposal event to Nostr
+        publishFeeProposalEvent(sessionId, feeProposal);
+
         // Check if all participants have proposed fees
         if(session.allParticipantsProposedFees()) {
             // Automatically select highest fee rate
@@ -180,11 +209,10 @@ public class CoordinationSessionManager extends Service<Void> {
                 log.info("Fee agreed for session {}: {} sat/vB (highest proposed)",
                         sessionId, highestFee.get());
 
-                // TODO Phase 3: Publish fee-agreed event to Nostr
+                // Publish fee-agreed event to Nostr
+                publishFeeAgreedEvent(sessionId, highestFee.get());
             }
         }
-
-        // TODO Phase 3: Publish fee-proposal event to Nostr
     }
 
     /**
@@ -207,7 +235,8 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Session finalized: {}", sessionId);
 
-        // TODO Phase 3: Publish session-finalize event to Nostr
+        // Publish session-finalize event to Nostr
+        publishSessionFinalizeEvent(sessionId, session);
     }
 
     /**
@@ -263,7 +292,7 @@ public class CoordinationSessionManager extends Service<Void> {
      */
     @Subscribe
     public void onNostrMessage(NostrMessageReceivedEvent event) {
-        // TODO Phase 3: Parse and handle Nostr coordination messages based on tags
+        // TODO Phase 3 Part 3: Parse and handle Nostr coordination messages based on tags
         // - session-create: ["d", "session-create"]
         // - session-join: ["d", "session-join"]
         // - output-proposal: ["d", "output-proposal"]
@@ -275,7 +304,187 @@ public class CoordinationSessionManager extends Service<Void> {
         String messageType = event.getNostrEvent().getTagValue("d");
         if(messageType != null) {
             log.debug("Coordination message type: {}", messageType);
-            // TODO: Route to appropriate handler based on messageType
+            // TODO Phase 3 Part 3: Route to appropriate handler based on messageType
+        }
+    }
+
+    // Nostr Event Publishing Methods
+
+    /**
+     * Publish session-create event to Nostr
+     */
+    private void publishSessionCreateEvent(CoordinationSession session) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish session-create event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            // Add tags
+            event.addTag("d", "session-create");
+            event.addTag("session-id", session.getSessionId());
+            event.addTag("network", session.getNetwork().toString());
+            event.addTag("expected-participants", String.valueOf(session.getExpectedParticipants()));
+
+            // Add content (could be encrypted in future)
+            Map<String, Object> content = new HashMap<>();
+            content.put("wallet_descriptor", session.getWalletDescriptor());
+            content.put("created_at", session.getCreatedAt().toString());
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published session-create event for session: {}", session.getSessionId());
+
+        } catch(Exception e) {
+            log.error("Failed to publish session-create event", e);
+        }
+    }
+
+    /**
+     * Publish session-join event to Nostr
+     */
+    private void publishSessionJoinEvent(String sessionId, CoordinationParticipant participant) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish session-join event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "session-join");
+            event.addTag("session-id", sessionId);
+            event.addTag("participant-pubkey", participant.getPubkey());
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("name", participant.getName());
+            content.put("xpub", participant.getXpub());
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published session-join event for session: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Failed to publish session-join event", e);
+        }
+    }
+
+    /**
+     * Publish output-proposal event to Nostr
+     */
+    private void publishOutputProposalEvent(String sessionId, CoordinationOutput output) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish output-proposal event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "output-proposal");
+            event.addTag("session-id", sessionId);
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("address", output.getAddress().toString());
+            content.put("amount", output.getAmount());
+            content.put("label", output.getLabel());
+            content.put("proposed_by", output.getProposedBy());
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published output-proposal event for session: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Failed to publish output-proposal event", e);
+        }
+    }
+
+    /**
+     * Publish fee-proposal event to Nostr
+     */
+    private void publishFeeProposalEvent(String sessionId, CoordinationFeeProposal feeProposal) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish fee-proposal event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "fee-proposal");
+            event.addTag("session-id", sessionId);
+            event.addTag("fee-rate", String.valueOf(feeProposal.getFeeRate()));
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("proposed_by", feeProposal.getProposedBy());
+            content.put("fee_rate", feeProposal.getFeeRate());
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published fee-proposal event for session: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Failed to publish fee-proposal event", e);
+        }
+    }
+
+    /**
+     * Publish fee-agreed event to Nostr
+     */
+    private void publishFeeAgreedEvent(String sessionId, double agreedFeeRate) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish fee-agreed event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "fee-agreed");
+            event.addTag("session-id", sessionId);
+            event.addTag("agreed-fee-rate", String.valueOf(agreedFeeRate));
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("fee_rate", agreedFeeRate);
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published fee-agreed event for session: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Failed to publish fee-agreed event", e);
+        }
+    }
+
+    /**
+     * Publish session-finalize event to Nostr
+     */
+    private void publishSessionFinalizeEvent(String sessionId, CoordinationSession session) {
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish session-finalize event - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "session-finalize");
+            event.addTag("session-id", sessionId);
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("total_output_amount", session.getTotalOutputAmount());
+            content.put("agreed_fee_rate", session.getAgreedFeeRate());
+            content.put("output_count", session.getOutputs().size());
+            content.put("participant_count", session.getParticipants().size());
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published session-finalize event for session: {}", sessionId);
+
+        } catch(Exception e) {
+            log.error("Failed to publish session-finalize event", e);
         }
     }
 
