@@ -625,7 +625,7 @@ public class PayNymController {
         List<TxoFilter> txoFilters = List.of(new SpentTxoFilter(), new FrozenTxoFilter(), new CoinbaseTxoFilter(wallet));
 
         TransactionParameters params = new TransactionParameters(utxoSelectors, txoFilters, payments, opReturns, Collections.emptySet(),
-                feeRate, minimumFeeRate, minRelayFeeRate, null, AppServices.getCurrentBlockHeight(), groupByAddress, includeMempoolOutputs, true);
+                feeRate, minimumFeeRate, minRelayFeeRate, null, AppServices.getCurrentBlockHeight(), groupByAddress, includeMempoolOutputs, true, false);
         return wallet.createWalletTransaction(params);
     }
 
