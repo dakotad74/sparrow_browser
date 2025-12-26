@@ -58,10 +58,10 @@ open module com.sparrowwallet.sparrow {
     requires com.sparrowwallet.lark;
     requires com.sun.jna;
     requires io.github.doblon8.jzbar;
-    // TODO Phase 2: Add nostr-java module requirements when implementing full Nostr integration
-    // requires nostr.java.api;
-    // requires nostr.java.base;
-    // requires nostr.java.client;
-    // requires nostr.java.event;
-    // requires nostr.java.crypto;
+    // Nostr integration for P2P coordination
+    requires nostr.java.api;
+    requires nostr.java.base;
+    requires nostr.java.client;
+    requires nostr.java.event;
+    requires nostr.java.crypto;
 }

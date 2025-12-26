@@ -114,9 +114,8 @@ dependencies {
     implementation('io.github.doblon8:jzbar:0.2.1')
 
     // Nostr integration for P2P coordination
-    // TODO Phase 2: Add nostr-java dependency when implementing full Nostr integration
-    // implementation platform('xyz.tcheeric:nostr-java-bom:1.1.1')
-    // implementation('xyz.tcheeric:nostr-java-api')
+    implementation platform('xyz.tcheeric:nostr-java-bom:1.1.1')
+    implementation('xyz.tcheeric:nostr-java-api')
 
     testImplementation('org.junit.jupiter:junit-jupiter-api:5.10.0')
     testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.10.0')
