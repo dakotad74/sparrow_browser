@@ -131,6 +131,18 @@
                             <FiatLabel fx:id="fiatFeeAmount" />
                         </Field>
                     </Fieldset>
+                    <Fieldset inputGrow="ALWAYS">
+                        <Field>
+                            <CheckBox fx:id="allowInsufficientInputsCheckbox" text="Allow incomplete transaction (outputs > inputs)" styleClass="allow-insufficient-checkbox">
+                                <tooltip>
+                                    <Tooltip text="Enable to create partial transactions for advanced use cases like:&#10;• ANYONECANPAY crowdfunding&#10;• P2P collateral deposits&#10;• Multi-party transaction construction" showDelay="500ms"/>
+                                </tooltip>
+                            </CheckBox>
+                        </Field>
+                        <Field>
+                            <Label fx:id="allowInsufficientInputsWarning" text="⚠ Warning: This transaction will be invalid until additional inputs are added by other parties" styleClass="insufficient-inputs-warning" wrapText="true" visible="false" managed="false"/>
+                        </Field>
+                    </Fieldset>
                 </Form>
                 <AnchorPane GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="2">
                     <BlockTargetFeeRatesChart fx:id="blockTargetFeeRatesChart" styleClass="feeRatesChart" legendVisible="false" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="20" animated="false" minHeight="135">

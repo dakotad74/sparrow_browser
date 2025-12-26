@@ -113,6 +113,12 @@ public class SendController extends WalletFormController implements Initializabl
     private FiatLabel fiatFeeAmount;
 
     @FXML
+    private CheckBox allowInsufficientInputsCheckbox;
+
+    @FXML
+    private Label allowInsufficientInputsWarning;
+
+    @FXML
     private BlockTargetFeeRatesChart blockTargetFeeRatesChart;
 
     @FXML
@@ -161,6 +167,8 @@ public class SendController extends WalletFormController implements Initializabl
     private final ObjectProperty<WalletTransaction> walletTransactionProperty = new SimpleObjectProperty<>(null);
 
     private final BooleanProperty insufficientInputsProperty = new SimpleBooleanProperty(false);
+
+    private final BooleanProperty allowInsufficientInputsProperty = new SimpleBooleanProperty(false);
 
     private final StringProperty utxoLabelSelectionProperty = new SimpleStringProperty("");
 
@@ -279,6 +287,16 @@ public class SendController extends WalletFormController implements Initializabl
                 controller.revalidateAmount();
             }
             revalidate(fee, feeListener);
+        });
+
+        allowInsufficientInputsCheckbox.selectedProperty().addListener((observable, oldValue, newValue) -> {
+            log.error("DEBUGGING: allowInsufficientInputsCheckbox changed: {} -> {}", oldValue, newValue);
+            allowInsufficientInputsProperty.set(newValue);
+            log.error("DEBUGGING: Property set to: {}", allowInsufficientInputsProperty.get());
+            allowInsufficientInputsWarning.setVisible(newValue);
+            allowInsufficientInputsWarning.setManaged(newValue);
+            log.error("DEBUGGING: About to call updateTransaction");
+            updateTransaction();
         });
 
         targetBlocksField.managedProperty().bind(targetBlocksField.visibleProperty());
@@ -414,7 +432,12 @@ public class SendController extends WalletFormController implements Initializabl
 
             transactionDiagram.update(walletTransaction);
             updatePrivacyAnalysis(walletTransaction);
-            createButton.setDisable(walletTransaction == null || isInsufficientFeeRate());
+            boolean shouldDisable = walletTransaction == null
+                || (isInsufficientFeeRate() && !allowInsufficientInputsProperty.get())
+                || (insufficientInputsProperty.get() && !allowInsufficientInputsProperty.get());
+            log.error("DEBUGGING: createButton.setDisable logic: walletTransaction={}, isInsufficientFeeRate={}, insufficientInputs={}, allowInsufficientInputs={}, result={}",
+                    (walletTransaction != null), isInsufficientFeeRate(), insufficientInputsProperty.get(), allowInsufficientInputsProperty.get(), shouldDisable);
+            createButton.setDisable(shouldDisable);
             notificationButton.setDisable(walletTransaction == null || isInsufficientFeeRate() || !AppServices.isConnected());
         });
 
@@ -483,7 +506,7 @@ public class SendController extends WalletFormController implements Initializabl
         validationSupport = new ValidationSupport();
         validationSupport.setValidationDecorator(new StyleClassValidationDecoration());
         validationSupport.registerValidator(fee, Validator.combine(
-                (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Inputs", userFeeSet.get() && insufficientInputsProperty.get()),
+                (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Inputs", userFeeSet.get() && insufficientInputsProperty.get() && !allowInsufficientInputsProperty.get()),
                 (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Fee Rate", isInsufficientFeeRate())
         ));
 
@@ -598,6 +621,7 @@ public class SendController extends WalletFormController implements Initializabl
 
     public void updateTransaction(List<Payment> transactionPayments) {
         if(walletTransactionService != null && walletTransactionService.isRunning()) {
+            log.error("DEBUGGING: Cancelling previous transaction service");
             walletTransactionService.setIgnoreResult(true);
             walletTransactionService.cancel();
         }
@@ -619,25 +643,45 @@ public class SendController extends WalletFormController implements Initializabl
                 boolean allowRbf = (replacedTransaction == null || replacedTransaction.getTransaction().isReplaceByFee())
                         && payments.stream().noneMatch(payment -> payment instanceof SilentPayment);
 
+                boolean allowInsufficientInputsValue = allowInsufficientInputsProperty.get();
+                log.error("DEBUGGING: Creating TransactionParameters with allowInsufficientInputs={}, checkbox selected={}",
+                        allowInsufficientInputsValue, allowInsufficientInputsCheckbox.isSelected());
+
                 TransactionParameters params = new TransactionParameters(getUtxoSelectors(payments), getTxoFilters(),
                         payments, opReturnsList, excludedChangeNodes,
                         feeRate, getMinimumFeeRate(), minRelayFeeRate, userFee,
-                        currentBlockHeight, groupByAddress, includeMempoolOutputs, allowRbf);
+                        currentBlockHeight, groupByAddress, includeMempoolOutputs, allowRbf, allowInsufficientInputsValue);
                 walletTransactionService = new WalletTransactionService(wallet, params, replacedTransaction);
+                log.error("DEBUGGING: Created NEW walletTransactionService instance");
                 walletTransactionService.setOnSucceeded(event -> {
                     if(!walletTransactionService.isIgnoreResult()) {
-                        walletTransactionProperty.setValue(walletTransactionService.getValue());
+                        WalletTransaction wt = walletTransactionService.getValue();
+                        log.error("DEBUGGING: Transaction service SUCCEEDED. WalletTransaction: {}, Total: {}", (wt != null), (wt != null ? wt.getTotal() : "null"));
+                        walletTransactionProperty.setValue(wt);
+                        //When transaction is created successfully, inputs are sufficient (or we're allowing insufficient inputs)
                         insufficientInputsProperty.set(false);
+                    } else {
+                        log.error("DEBUGGING: Transaction service SUCCEEDED but result is IGNORED");
                     }
                 });
                 walletTransactionService.setOnFailed(event -> {
                     if(!walletTransactionService.isIgnoreResult()) {
                         transactionDiagram.clear();
                         walletTransactionProperty.setValue(null);
-                        if(event.getSource().getException() instanceof InsufficientFundsException) {
+                        Throwable exception = event.getSource().getException();
+                        log.error("DEBUGGING: Transaction service FAILED with exception type: {}, allowInsufficientInputs={}",
+                                (exception != null ? exception.getClass().getSimpleName() : "null"),
+                                allowInsufficientInputsProperty.get(), exception);
+                        if(exception instanceof InsufficientFundsException) {
+                            log.error("Transaction service failed with InsufficientFundsException despite allowInsufficientInputs={}", allowInsufficientInputsProperty.get(), exception);
                             insufficientInputsProperty.set(true);
                         }
+                    } else {
+                        log.error("DEBUGGING: Transaction service FAILED but result is IGNORED");
                     }
+                });
+                walletTransactionService.setOnCancelled(event -> {
+                    log.error("DEBUGGING: Transaction service CANCELLED, ignoreResult={}", walletTransactionService.isIgnoreResult());
                 });
 
                 final WalletTransactionService currentWalletTransactionService = walletTransactionService;
@@ -656,9 +700,12 @@ public class SendController extends WalletFormController implements Initializabl
                 final Timeline timeline = new Timeline(delay);
                 timeline.play();
 
+                log.error("DEBUGGING: About to START walletTransactionService");
                 walletTransactionService.start();
+                log.error("DEBUGGING: walletTransactionService.start() called");
             }
         } catch(IllegalStateException e) {
+            log.error("DEBUGGING: IllegalStateException caught in updateTransaction", e);
             walletTransactionProperty.setValue(null);
         }
     }
@@ -700,9 +747,13 @@ public class SendController extends WalletFormController implements Initializabl
         protected Task<WalletTransaction> createTask() {
             return new Task<>() {
                 protected WalletTransaction call() throws InsufficientFundsException {
+                    log.error("DEBUGGING: Task.call() started with allowInsufficientInputs={}", params.allowInsufficientInputs());
                     try {
-                        return getWalletTransaction();
+                        WalletTransaction wt = getWalletTransaction();
+                        log.error("DEBUGGING: Task.call() succeeded, returning WalletTransaction: {}", (wt != null));
+                        return wt;
                     } catch(InsufficientFundsException e) {
+                        log.error("DEBUGGING: Task.call() caught InsufficientFundsException, allowInsufficientInputs={}", params.allowInsufficientInputs(), e);
                         if(e.getTargetValue() != null && replacedTransaction != null && wallet.isSafeToAddInputsOrOutputs(replacedTransaction)
                                 && params.utxoSelectors().size() == 1 && params.utxoSelectors().getFirst() instanceof PresetUtxoSelector presetUtxoSelector) {
                             //Creating RBF transaction - include additional UTXOs if available to pay desired fee
@@ -728,10 +779,20 @@ public class SendController extends WalletFormController implements Initializabl
 
                 private WalletTransaction getWalletTransaction() throws InsufficientFundsException {
                     try {
+                        log.error("DEBUGGING: getWalletTransaction() called, about to call wallet.createWalletTransaction");
                         updateMessage("Selecting UTXOs...");
-                        return wallet.createWalletTransaction(params);
+                        WalletTransaction result = wallet.createWalletTransaction(params);
+                        log.error("DEBUGGING: wallet.createWalletTransaction returned: {}", (result != null));
+                        return result;
+                    } catch(Exception e) {
+                        log.error("DEBUGGING: getWalletTransaction() caught exception: {}", e.getClass().getSimpleName(), e);
+                        if(e instanceof InsufficientFundsException) {
+                            throw (InsufficientFundsException)e;
+                        }
+                        throw new RuntimeException(e);
                     } finally {
                         updateMessage("");
+                        log.error("DEBUGGING: getWalletTransaction() finally block");
                     }
                 }
             };
@@ -1084,6 +1145,8 @@ public class SendController extends WalletFormController implements Initializabl
         walletTransactionProperty.setValue(null);
         walletForm.setCreatedWalletTransaction(null);
         insufficientInputsProperty.set(false);
+        allowInsufficientInputsProperty.set(false);
+        allowInsufficientInputsCheckbox.setSelected(false);
 
         validationSupport.setErrorDecorationEnabled(false);
 
@@ -1114,6 +1177,10 @@ public class SendController extends WalletFormController implements Initializabl
 
     public BooleanProperty insufficientInputsProperty() {
         return insufficientInputsProperty;
+    }
+
+    public BooleanProperty allowInsufficientInputsProperty() {
+        return allowInsufficientInputsProperty;
     }
 
     public WalletTransaction getWalletTransaction() {
@@ -1238,7 +1305,7 @@ public class SendController extends WalletFormController implements Initializabl
             boolean includeMempoolOutputs = Config.get().isIncludeMempoolOutputs();
 
             TransactionParameters params = new TransactionParameters(utxoSelectors, getTxoFilters(), walletTransaction.getPayments(), List.of(blindedPaymentCode),
-                    excludedChangeNodes, feeRate, getMinimumFeeRate(), minRelayFeeRate, userFee, currentBlockHeight, groupByAddress, includeMempoolOutputs, true);
+                    excludedChangeNodes, feeRate, getMinimumFeeRate(), minRelayFeeRate, userFee, currentBlockHeight, groupByAddress, includeMempoolOutputs, true, false);
             WalletTransaction finalWalletTx = decryptedWallet.createWalletTransaction(params);
             PSBT psbt = finalWalletTx.createPSBT();
             decryptedWallet.sign(psbt);

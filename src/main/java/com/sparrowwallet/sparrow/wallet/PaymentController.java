@@ -390,7 +390,6 @@ public class PaymentController extends WalletFormController implements Initializ
 
         label.textProperty().addListener((observable, oldValue, newValue) -> {
             maxButton.setDisable(!isMaxButtonEnabled());
-            sendController.getCreateButton().setDisable(sendController.getWalletTransaction() == null || newValue == null || newValue.isEmpty() || sendController.isInsufficientFeeRate());
             sendController.updateTransaction();
         });
 
@@ -419,7 +418,7 @@ public class PaymentController extends WalletFormController implements Initializ
             maxButton.setText("Max" + newValue);
         });
         amountStatus.managedProperty().bind(amountStatus.visibleProperty());
-        amountStatus.visibleProperty().bind(sendController.insufficientInputsProperty().and(dustAmountProperty.not()).and(emptyAmountProperty.not()));
+        amountStatus.visibleProperty().bind(sendController.insufficientInputsProperty().and(sendController.allowInsufficientInputsProperty().not()).and(dustAmountProperty.not()).and(emptyAmountProperty.not()));
         dustStatus.managedProperty().bind(dustStatus.visibleProperty());
         dustStatus.visibleProperty().bind(dustAmountProperty);
 
@@ -523,7 +522,7 @@ public class PaymentController extends WalletFormController implements Initializ
                 Validator.createEmptyValidator("Label is required")
         ));
         validationSupport.registerValidator(amount, Validator.combine(
-                (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Inputs", getRecipientValueSats() != null && sendController.isInsufficientInputs()),
+                (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Inputs", getRecipientValueSats() != null && sendController.isInsufficientInputs() && !sendController.allowInsufficientInputsProperty().get()),
                 (Control c, String newValue) -> ValidationResult.fromErrorIf( c, "Insufficient Value", getRecipientValueSats() != null && getRecipientValueSats() < getRecipientDustThreshold())
         ));
     }
