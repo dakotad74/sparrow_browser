@@ -16,8 +16,8 @@ case "$1" in
     
     test|t)
         echo -e "${BLUE}Ejecutando tests de coordinación...${NC}"
-        ./gradlew test --tests CoordinationIntegrationTest
-        ./gradlew test --tests CoordinationWorkflowTest.testFeeProposalReplacement
+        ./gradlew :test --tests "com.sparrowwallet.sparrow.coordination.CoordinationIntegrationTest"
+        ./gradlew :test --tests "com.sparrowwallet.sparrow.coordination.CoordinationWorkflowTest.testFeeProposalReplacement"
         ;;
     
     build|b)
