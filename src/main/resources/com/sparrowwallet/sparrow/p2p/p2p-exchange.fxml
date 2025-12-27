@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.P2PExchangeController"
+            styleClass="p2p-exchange">
+
+    <top>
+        <!-- Title and Settings -->
+        <HBox styleClass="title-bar" spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="10" right="15" bottom="10" left="15"/>
+            </padding>
+            <Label text="P2P Exchange" styleClass="title-label">
+                <font>
+                    <Font name="System Bold" size="16"/>
+                </font>
+            </Label>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="⚙" styleClass="icon-button"/>
+        </HBox>
+    </top>
+
+    <center>
+        <VBox spacing="15">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+
+            <!-- Identity Section -->
+            <VBox styleClass="identity-section" spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Nostr Identity:" styleClass="section-label">
+                        <font>
+                            <Font name="System Bold" size="12"/>
+                        </font>
+                    </Label>
+                    <Label fx:id="identityNameLabel" text="Loading..." styleClass="identity-name"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="changeIdentityButton" text="Change Identity ▼" styleClass="secondary-button"/>
+                    <Button fx:id="createIdentityButton" text="+ New" styleClass="primary-button"/>
+                </HBox>
+
+                <VBox styleClass="identity-details" spacing="5">
+                    <padding>
+                        <Insets top="5" right="5" bottom="5" left="5"/>
+                    </padding>
+                    <Label fx:id="identityTypeLabel" text="Type: Loading..." styleClass="detail-label"/>
+                    <Label fx:id="identityNpubLabel" text="npub: ..." styleClass="detail-label"/>
+                    <Label fx:id="identityReputationLabel" text="Reputation: Loading..." styleClass="detail-label"/>
+                    <Label fx:id="identityCreatedLabel" text="Created: ..." styleClass="detail-label"/>
+                </VBox>
+            </VBox>
+
+            <!-- Main Content: Marketplace and Activity -->
+            <SplitPane dividerPositions="0.6" VBox.vgrow="ALWAYS">
+
+                <!-- Left: Marketplace -->
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="MARKETPLACE" styleClass="section-header">
+                            <font>
+                                <Font name="System Bold" size="12"/>
+                            </font>
+                        </Label>
+                    </HBox>
+
+                    <HBox spacing="10">
+                        <Button fx:id="createOfferButton" text="Create Offer" styleClass="primary-button"/>
+                        <Button fx:id="refreshButton" text="Refresh" styleClass="secondary-button"/>
+                    </HBox>
+
+                    <!-- Filters -->
+                    <GridPane hgap="10" vgap="5">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="50"/>
+                            <ColumnConstraints percentWidth="50"/>
+                        </columnConstraints>
+
+                        <Label text="Type:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="typeFilterCombo" GridPane.columnIndex="0" GridPane.rowIndex="1" maxWidth="Infinity"/>
+
+                        <Label text="Currency:" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="currencyFilterCombo" GridPane.columnIndex="1" GridPane.rowIndex="1" maxWidth="Infinity"/>
+
+                        <Label text="Location:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <ComboBox fx:id="locationFilterCombo" GridPane.columnIndex="0" GridPane.rowIndex="3" maxWidth="Infinity"/>
+
+                        <Label text="Payment:" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                        <ComboBox fx:id="paymentFilterCombo" GridPane.columnIndex="1" GridPane.rowIndex="3" maxWidth="Infinity"/>
+
+                        <Label text="Amount:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                        <ComboBox fx:id="amountFilterCombo" GridPane.columnIndex="0" GridPane.rowIndex="5" maxWidth="Infinity"/>
+                    </GridPane>
+
+                    <Label text="Available Offers:" styleClass="subsection-label">
+                        <font>
+                            <Font name="System Bold" size="11"/>
+                        </font>
+                    </Label>
+
+                    <!-- Offers List -->
+                    <ListView fx:id="offersListView" VBox.vgrow="ALWAYS"/>
+
+                </VBox>
+
+                <!-- Right: My Activity -->
+                <VBox fx:id="myActivityBox" spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+
+                    <Label text="MY ACTIVITY" styleClass="section-header">
+                        <font>
+                            <Font name="System Bold" size="12"/>
+                        </font>
+                    </Label>
+
+                    <VBox spacing="5">
+                        <Label fx:id="activeTradesLabel" text="Active Trades: 0" styleClass="stat-label"/>
+                        <Label fx:id="completedTradesLabel" text="Completed Trades: 0" styleClass="stat-label"/>
+                        <Label fx:id="openOffersLabel" text="Open Offers: 0" styleClass="stat-label"/>
+                    </VBox>
+
+                    <Separator/>
+
+                    <VBox spacing="10" VBox.vgrow="ALWAYS" alignment="CENTER">
+                        <Label text="No active trades" styleClass="empty-state-label"/>
+                        <Label text="Create an offer or accept" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
+                        <Label text="one from the marketplace" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
+                        <Label text="to start trading" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
+                        <Button fx:id="createOfferActivityButton" text="Create Offer" styleClass="primary-button"/>
+                    </VBox>
+
+                    <Separator/>
+
+                    <Label text="Recent Activity:" styleClass="subsection-label">
+                        <font>
+                            <Font name="System Bold" size="11"/>
+                        </font>
+                    </Label>
+
+                    <ListView fx:id="activityListView" VBox.vgrow="ALWAYS"/>
+
+                </VBox>
+
+            </SplitPane>
+
+        </VBox>
+    </center>
+
+    <bottom>
+        <!-- Status Bar -->
+        <HBox styleClass="status-bar" spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="5" right="15" bottom="5" left="15"/>
+            </padding>
+            <Label fx:id="statusLabel" text="Initializing..." styleClass="status-label"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>
