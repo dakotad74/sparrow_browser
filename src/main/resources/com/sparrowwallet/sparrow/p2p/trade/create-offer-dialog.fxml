@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.trade.CreateOfferController"
+            prefWidth="700" prefHeight="800"
+            styleClass="create-offer-dialog"
+            stylesheets="@../p2p.css">
+
+    <!-- Title Bar -->
+    <top>
+        <VBox styleClass="title-area">
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="title-bar">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+                <Label text="Create Trade Offer" styleClass="title-text"/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <!-- Main Content -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="content-scroll">
+            <VBox spacing="20" styleClass="main-content">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+
+                <!-- Identity Section -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Your Identity" styleClass="section-title"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Name:" styleClass="label-bold"/>
+                        <Label fx:id="identityNameLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Npub:" styleClass="label-bold"/>
+                        <Label fx:id="identityNpubLabel" text="" styleClass="monospace"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Offer Type -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Offer Type" styleClass="section-title"/>
+                    <Separator/>
+                    <HBox spacing="20">
+                        <RadioButton fx:id="buyTypeRadio" text="Buy BTC (I want to buy Bitcoin)"/>
+                        <RadioButton fx:id="sellTypeRadio" text="Sell BTC (I want to sell Bitcoin)"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Amount and Pricing -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Amount and Pricing" styleClass="section-title"/>
+                    <Separator/>
+
+                    <!-- Amount -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Amount:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="amountField" promptText="0.01" prefWidth="150"/>
+                        <ComboBox fx:id="amountUnitCombo" prefWidth="100"/>
+                    </HBox>
+
+                    <!-- Currency -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Currency:" styleClass="label-bold" minWidth="120"/>
+                        <ComboBox fx:id="currencyCombo" prefWidth="100"/>
+                    </HBox>
+
+                    <!-- Price -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Price:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="priceField" promptText="45000" prefWidth="150"/>
+                        <Label text="per BTC"/>
+                    </HBox>
+
+                    <!-- Market Price Option -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="" minWidth="120"/>
+                        <CheckBox fx:id="useMarketPriceCheckbox" text="Use current market price"/>
+                    </HBox>
+
+                    <!-- Premium -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Premium/Discount:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="premiumField" promptText="0.0" prefWidth="100"/>
+                        <Label text="% (positive = premium, negative = discount)"/>
+                    </HBox>
+
+                    <!-- Effective Price -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="" minWidth="120"/>
+                        <Label fx:id="effectivePriceLabel" text="--" styleClass="help-text"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Trading Limits -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Trading Limits" styleClass="section-title"/>
+                    <Separator/>
+                    <Label text="Set minimum and maximum amounts for individual trades" styleClass="help-text"/>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Minimum Trade:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="minTradeField" promptText="0.001" prefWidth="150"/>
+                        <ComboBox fx:id="limitUnitCombo" prefWidth="100"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Maximum Trade:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="maxTradeField" promptText="Same as total amount" prefWidth="150"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Payment and Location -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Payment and Location" styleClass="section-title"/>
+                    <Separator/>
+
+                    <!-- Payment Method -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Payment Method:" styleClass="label-bold" minWidth="120"/>
+                        <ComboBox fx:id="paymentMethodCombo" prefWidth="250"/>
+                    </HBox>
+
+                    <!-- Location -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Location:" styleClass="label-bold" minWidth="120"/>
+                        <TextField fx:id="locationField" promptText="City, Country" prefWidth="250"/>
+                    </HBox>
+
+                    <!-- Location Details -->
+                    <VBox spacing="5">
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="Location Details:" styleClass="label-bold" minWidth="120"/>
+                            <Label text="(optional)" styleClass="help-text"/>
+                        </HBox>
+                        <TextArea fx:id="locationDetailArea"
+                                promptText="Meeting location, timezone, availability..."
+                                prefRowCount="2" wrapText="true"/>
+                    </VBox>
+                </VBox>
+
+                <!-- Terms and Conditions -->
+                <VBox spacing="10" styleClass="section">
+                    <Label text="Terms and Conditions" styleClass="section-title"/>
+                    <Separator/>
+
+                    <!-- Description -->
+                    <VBox spacing="5">
+                        <Label text="Description:" styleClass="label-bold"/>
+                        <TextArea fx:id="descriptionArea"
+                                promptText="Brief description of your offer..."
+                                prefRowCount="3" wrapText="true"/>
+                    </VBox>
+
+                    <!-- Trading Terms -->
+                    <VBox spacing="5">
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="Trading Terms:" styleClass="label-bold"/>
+                            <Label text="(optional)" styleClass="help-text"/>
+                        </HBox>
+                        <TextArea fx:id="termsArea"
+                                promptText="Additional terms, requirements, or conditions..."
+                                prefRowCount="3" wrapText="true"/>
+                    </VBox>
+
+                    <!-- Escrow Time -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Escrow Window:" styleClass="label-bold" minWidth="120"/>
+                        <Spinner fx:id="escrowTimeSpinner" prefWidth="100"/>
+                        <Label text="hours (maximum time to complete trade)"/>
+                    </HBox>
+                </VBox>
+
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <!-- Bottom Buttons -->
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT" styleClass="button-bar">
+            <padding>
+                <Insets top="15" right="20" bottom="15" left="20"/>
+            </padding>
+            <Button fx:id="cancelButton" text="Cancel" styleClass="button-secondary"/>
+            <Button fx:id="createButton" text="Create Offer" styleClass="button-primary"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

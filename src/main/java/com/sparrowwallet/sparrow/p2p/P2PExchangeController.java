@@ -396,12 +396,56 @@ public class P2PExchangeController implements Initializable {
      */
     private void createOffer() {
         log.info("Creating new offer...");
-        // TODO: Open CreateOfferDialog
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Create Offer");
-        alert.setHeaderText("Create Trade Offer");
-        alert.setContentText("Create offer UI coming soon!");
-        alert.showAndWait();
+
+        // Check if we have an active identity
+        if (currentIdentity == null) {
+            Alert error = new Alert(Alert.AlertType.WARNING);
+            error.setTitle("No Identity");
+            error.setHeaderText("Identity Required");
+            error.setContentText("You need an active identity to create offers.\n\nPlease create or select an identity first.");
+            error.showAndWait();
+            return;
+        }
+
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/trade/create-offer-dialog.fxml")
+            );
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setTitle("Create Trade Offer - Sparrow");
+            stage.setScene(new javafx.scene.Scene(loader.load()));
+            stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            stage.setMinWidth(700);
+            stage.setMinHeight(800);
+
+            com.sparrowwallet.sparrow.p2p.trade.CreateOfferController controller = loader.getController();
+            controller.setDialogStage(stage);
+
+            stage.showAndWait();
+
+            // Check if offer was created
+            com.sparrowwallet.sparrow.p2p.trade.TradeOffer newOffer = controller.getCreatedOffer();
+            if (newOffer != null) {
+                log.info("Offer created: {}", newOffer);
+
+                // TODO: Publish to Nostr
+                // TODO: Add to local offers list
+                // TODO: Refresh marketplace
+
+                Alert success = new Alert(Alert.AlertType.INFORMATION);
+                success.setTitle("Offer Created");
+                success.setHeaderText("Trade Offer Created Successfully");
+                success.setContentText(newOffer.getDisplaySummary() + "\n\nOffer will be published to Nostr marketplace.");
+                success.showAndWait();
+            }
+        } catch (Exception e) {
+            log.error("Failed to open Create Offer dialog", e);
+            Alert error = new Alert(Alert.AlertType.ERROR);
+            error.setTitle("Error");
+            error.setHeaderText("Failed to Create Offer");
+            error.setContentText(e.getMessage());
+            error.showAndWait();
+        }
     }
 
     /**
