@@ -172,12 +172,24 @@ public class IdentityManagerController implements Initializable {
         persistentListView.getSelectionModel().selectedItemProperty().addListener(
             (obs, oldVal, newVal) -> onIdentitySelected(newVal)
         );
+        // Double-click to activate
+        persistentListView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2 && selectedIdentity != null) {
+                switchActiveIdentity();
+            }
+        });
 
         // Custom cell factory for ephemeral identities
         ephemeralListView.setCellFactory(lv -> new IdentityListCell(false));
         ephemeralListView.getSelectionModel().selectedItemProperty().addListener(
             (obs, oldVal, newVal) -> onIdentitySelected(newVal)
         );
+        // Double-click to activate
+        ephemeralListView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2 && selectedIdentity != null) {
+                switchActiveIdentity();
+            }
+        });
     }
 
     /**
