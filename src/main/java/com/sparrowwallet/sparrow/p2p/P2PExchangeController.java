@@ -316,14 +316,33 @@ public class P2PExchangeController implements Initializable {
      */
     private void openIdentityManager() {
         log.info("Opening identity manager...");
-        // TODO: Open IdentityManagerDialog
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Identity Manager");
-        alert.setHeaderText("Manage Your Nostr Identities");
-        alert.setContentText("Identity manager UI coming soon!\n\n" +
-            "Current identity: " + currentIdentity.getDisplayName() + "\n" +
-            "Total identities: " + identityManager.getAllIdentities().size());
-        alert.showAndWait();
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/identity/identity-manager.fxml")
+            );
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setTitle("Identity Manager - Sparrow");
+            stage.setScene(new javafx.scene.Scene(loader.load()));
+            stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            stage.setMinWidth(900);
+            stage.setMinHeight(700);
+
+            com.sparrowwallet.sparrow.p2p.identity.IdentityManagerController controller = loader.getController();
+            controller.setDialogStage(stage);
+
+            stage.showAndWait();
+
+            // Refresh identity display after dialog closes
+            currentIdentity = identityManager.getActiveIdentity();
+            updateIdentityDisplay();
+        } catch (Exception e) {
+            log.error("Failed to open Identity Manager", e);
+            Alert error = new Alert(Alert.AlertType.ERROR);
+            error.setTitle("Error");
+            error.setHeaderText("Failed to Open Identity Manager");
+            error.setContentText(e.getMessage());
+            error.showAndWait();
+        }
     }
 
     /**

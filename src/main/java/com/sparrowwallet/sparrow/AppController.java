@@ -1494,6 +1494,23 @@ public class AppController implements Initializable {
         }
     }
 
+    public void showP2PExchange(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("p2p/p2p-exchange.fxml"));
+            Stage stage = new Stage();
+            stage.setTitle("P2P Exchange - Sparrow");
+            stage.setScene(new Scene(loader.load()));
+            stage.initOwner(rootStack.getScene().getWindow());
+            stage.initModality(Modality.NONE);
+            stage.setMinWidth(900);
+            stage.setMinHeight(700);
+            stage.show();
+        } catch(IOException e) {
+            log.error("Failed to open P2P Exchange", e);
+            AppServices.showErrorDialog("P2P Exchange Error", "Failed to open P2P Exchange: " + e.getMessage());
+        }
+    }
+
     public void verifyDownload(ActionEvent event) {
         if(downloadVerifierDialog != null) {
             Stage stage = (Stage)downloadVerifierDialog.getDialogPane().getScene().getWindow();

@@ -143,6 +143,7 @@
                     <MenuItem fx:id="sweepPrivateKey" mnemonicParsing="false" text="Sweep Private Key" onAction="#sweepPrivateKey"/>
                     <SeparatorMenuItem />
                     <MenuItem fx:id="showPayNym" mnemonicParsing="false" text="Show PayNym" onAction="#showPayNym"/>
+                    <MenuItem mnemonicParsing="false" text="P2P Exchange" accelerator="Shortcut+P" onAction="#showP2PExchange"/>
                     <SeparatorMenuItem />
                     <Menu fx:id="switchServer" text="Switch Server"/>
                     <MenuItem mnemonicParsing="false" text="Verify Download" onAction="#verifyDownload" />
