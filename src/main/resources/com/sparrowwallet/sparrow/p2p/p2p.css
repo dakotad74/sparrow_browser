@@ -1,0 +1,192 @@
+/* P2P Exchange Stylesheet */
+
+/* Title and sections */
+.title-area {
+    -fx-background-color: derive(-fx-base, -5%);
+}
+
+.title-bar {
+    -fx-padding: 15 20;
+}
+
+.title-text {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.subtitle-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: derive(-fx-text-base-color, -30%);
+}
+
+.section {
+    -fx-background-color: derive(-fx-base, 5%);
+    -fx-background-radius: 5px;
+    -fx-padding: 15;
+}
+
+.section-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.subsection-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: derive(-fx-text-base-color, -20%);
+}
+
+/* Identity section */
+.identity-grid {
+    -fx-hgap: 15;
+    -fx-vgap: 10;
+}
+
+.label-bold {
+    -fx-font-weight: bold;
+}
+
+.monospace {
+    -fx-font-family: "Courier New", monospace;
+    -fx-font-size: 11px;
+}
+
+/* Buttons */
+.button-primary {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.button-primary:hover {
+    -fx-background-color: #1976D2;
+}
+
+.button-secondary {
+    -fx-background-color: derive(-fx-base, -10%);
+}
+
+.button-secondary:hover {
+    -fx-background-color: derive(-fx-base, -20%);
+}
+
+.button-danger {
+    -fx-background-color: #f44336;
+    -fx-text-fill: white;
+}
+
+.button-danger:hover {
+    -fx-background-color: #d32f2f;
+}
+
+/* Empty states */
+.empty-state {
+    -fx-background-color: derive(-fx-base, -5%);
+    -fx-background-radius: 3px;
+    -fx-border-color: derive(-fx-base, -15%);
+    -fx-border-width: 1px;
+    -fx-border-style: dashed;
+    -fx-border-radius: 3px;
+}
+
+.empty-state-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: derive(-fx-text-base-color, -20%);
+}
+
+.empty-state-subtext {
+    -fx-font-size: 11px;
+    -fx-text-fill: derive(-fx-text-base-color, -40%);
+}
+
+/* Lists */
+.identity-list {
+    -fx-background-color: derive(-fx-base, 0%);
+}
+
+.identity-list .list-cell {
+    -fx-padding: 10;
+    -fx-background-radius: 3px;
+}
+
+.identity-list .list-cell:selected {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+}
+
+.identity-list .list-cell:hover {
+    -fx-background-color: derive(-fx-base, -5%);
+}
+
+/* Filters */
+.filter-grid {
+    -fx-hgap: 10;
+    -fx-vgap: 10;
+}
+
+/* Help and warning text */
+.help-text {
+    -fx-font-size: 10px;
+    -fx-text-fill: derive(-fx-text-base-color, -40%);
+    -fx-font-style: italic;
+}
+
+.warning-text {
+    -fx-font-size: 10px;
+    -fx-text-fill: #ff9800;
+    -fx-font-weight: bold;
+}
+
+/* Status bar customization */
+.p2p-status-bar {
+    -fx-font-size: 11px;
+}
+
+/* Activity section */
+.activity-list .list-cell {
+    -fx-padding: 5;
+    -fx-font-size: 11px;
+}
+
+/* Stats labels */
+.stat-label {
+    -fx-font-size: 12px;
+    -fx-padding: 5;
+}
+
+/* Marketplace */
+.offers-list .list-cell {
+    -fx-padding: 10;
+}
+
+.offers-list .list-cell:hover {
+    -fx-background-color: derive(-fx-base, -5%);
+    -fx-cursor: hand;
+}
+
+/* Create section styling */
+.create-section {
+    -fx-background-color: derive(-fx-base, -2%);
+}
+
+/* Identity Manager specific */
+.identity-manager {
+    -fx-background-color: -fx-base;
+}
+
+.content-scroll {
+    -fx-background-color: transparent;
+}
+
+.content-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.main-content {
+    -fx-background-color: transparent;
+}
+
+.active-identity-grid {
+    -fx-hgap: 15;
+    -fx-vgap: 10;
+}

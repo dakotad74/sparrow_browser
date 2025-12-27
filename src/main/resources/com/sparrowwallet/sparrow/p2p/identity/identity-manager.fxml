@@ -8,7 +8,8 @@
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.sparrowwallet.sparrow.p2p.identity.IdentityManagerController"
             prefWidth="900" prefHeight="700"
-            styleClass="identity-manager">
+            styleClass="identity-manager"
+            stylesheets="@../p2p.css">
 
     <!-- Title Bar -->
     <top>

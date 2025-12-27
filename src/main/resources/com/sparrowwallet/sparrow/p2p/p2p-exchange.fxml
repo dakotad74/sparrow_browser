@@ -8,7 +8,8 @@
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.sparrowwallet.sparrow.p2p.P2PExchangeController"
-            styleClass="p2p-exchange">
+            styleClass="p2p-exchange"
+            stylesheets="@p2p.css">
 
     <top>
         <!-- Title and Settings -->
