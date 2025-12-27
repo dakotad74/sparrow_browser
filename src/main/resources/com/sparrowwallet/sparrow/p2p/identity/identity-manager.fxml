@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.identity.IdentityManagerController"
+            prefWidth="900" prefHeight="700"
+            styleClass="identity-manager">
+
+    <!-- Title Bar -->
+    <top>
+        <VBox styleClass="title-area">
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="title-bar">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+                <Label text="Identity Manager" styleClass="title-text"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label text="Manage your Nostr identities for P2P trading" styleClass="subtitle-text"/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <!-- Main Content -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="content-scroll">
+            <VBox spacing="20" styleClass="main-content">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+
+                <!-- Active Identity Section -->
+                <VBox spacing="15" styleClass="section">
+                    <Label text="Active Identity" styleClass="section-title"/>
+                    <Separator/>
+
+                    <GridPane hgap="15" vgap="10" styleClass="active-identity-grid">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="85"/>
+                        </columnConstraints>
+
+                        <!-- Name -->
+                        <Label text="Name:" styleClass="label-bold" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <Label fx:id="activeIdentityNameLabel" text="No active identity" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <!-- Npub -->
+                        <Label text="Npub:" styleClass="label-bold" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <Label fx:id="activeIdentityNpubLabel" text="" wrapText="true" styleClass="monospace"
+                               GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                        <!-- Info -->
+                        <Label text="Info:" styleClass="label-bold" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <Label fx:id="activeIdentityInfoLabel" text="" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                    </GridPane>
+
+                    <!-- Action Buttons -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Button fx:id="switchActiveButton" text="Switch Active" styleClass="button-primary"/>
+                        <Button fx:id="deleteActiveButton" text="Delete" styleClass="button-danger"/>
+                        <Button fx:id="exportActiveButton" text="Export Keys" styleClass="button-secondary"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Identity Lists Section -->
+                <VBox spacing="15" styleClass="section">
+                    <Label text="All Identities" styleClass="section-title"/>
+                    <Separator/>
+
+                    <!-- Persistent Identities -->
+                    <VBox spacing="10">
+                        <Label text="Persistent Identities (Long-term, Build Reputation)" styleClass="subsection-title"/>
+
+                        <!-- Empty state -->
+                        <VBox fx:id="persistentEmptyState" spacing="10" alignment="CENTER"
+                              styleClass="empty-state" minHeight="100">
+                            <padding>
+                                <Insets top="20" right="20" bottom="20" left="20"/>
+                            </padding>
+                            <Label text="No persistent identities yet" styleClass="empty-state-text"/>
+                            <Label text="Create one below to build long-term reputation" styleClass="empty-state-subtext"/>
+                        </VBox>
+
+                        <!-- List -->
+                        <ListView fx:id="persistentListView" styleClass="identity-list" prefHeight="150"
+                                  visible="false" managed="false"/>
+                    </VBox>
+
+                    <!-- Ephemeral Identities -->
+                    <VBox spacing="10">
+                        <Label text="Ephemeral Identities (Single-use, Maximum Privacy)" styleClass="subsection-title"/>
+
+                        <!-- Empty state -->
+                        <VBox fx:id="ephemeralEmptyState" spacing="10" alignment="CENTER"
+                              styleClass="empty-state" minHeight="100">
+                            <padding>
+                                <Insets top="20" right="20" bottom="20" left="20"/>
+                            </padding>
+                            <Label text="No ephemeral identities" styleClass="empty-state-text"/>
+                            <Label text="Create one below for maximum privacy in a single trade" styleClass="empty-state-subtext"/>
+                        </VBox>
+
+                        <!-- List -->
+                        <ListView fx:id="ephemeralListView" styleClass="identity-list" prefHeight="150"
+                                  visible="false" managed="false"/>
+                    </VBox>
+                </VBox>
+
+                <!-- Create New Identity Section -->
+                <VBox spacing="15" styleClass="section create-section">
+                    <Label text="Create New Identity" styleClass="section-title"/>
+                    <Separator/>
+
+                    <!-- Identity Type Selection -->
+                    <VBox spacing="10">
+                        <Label text="Identity Type:" styleClass="label-bold"/>
+                        <HBox spacing="20">
+                            <RadioButton fx:id="persistentTypeRadio" text="Persistent (Long-term, Build Reputation)">
+                                <toggleGroup>
+                                    <ToggleGroup fx:id="identityTypeGroup"/>
+                                </toggleGroup>
+                            </RadioButton>
+                            <RadioButton fx:id="ephemeralTypeRadio" text="Ephemeral (Single-use, Maximum Privacy)"
+                                       toggleGroup="$identityTypeGroup" selected="true"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Display Name -->
+                    <VBox spacing="5">
+                        <Label text="Display Name:" styleClass="label-bold"/>
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <TextField fx:id="displayNameField" promptText="Enter a display name"
+                                     HBox.hgrow="ALWAYS" prefWidth="300" disable="true"/>
+                            <CheckBox fx:id="randomNameCheckbox" text="Generate random name (for privacy)"
+                                    selected="true"/>
+                        </HBox>
+                        <Label text="Persistent identities require a meaningful name. Ephemeral can use random names."
+                               styleClass="help-text"/>
+                    </VBox>
+
+                    <!-- Import Keys Option -->
+                    <VBox spacing="5">
+                        <CheckBox fx:id="importKeysCheckbox" text="Import existing Nostr keys (nsec)"
+                                styleClass="label-bold"/>
+                        <TextArea fx:id="importNsecArea" promptText="Paste your nsec key here..."
+                                prefRowCount="3" visible="false" managed="false"/>
+                        <Label text="⚠️ Only import keys you trust. Never share your nsec with anyone!"
+                               styleClass="warning-text" visible="false" managed="false"/>
+                    </VBox>
+
+                    <!-- Action Buttons -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Button fx:id="createIdentityButton" text="Create Identity" styleClass="button-primary"/>
+                        <Button fx:id="cancelButton" text="Close" styleClass="button-secondary"/>
+                    </HBox>
+                </VBox>
+
+            </VBox>
+        </ScrollPane>
+    </center>
+
+</BorderPane>
