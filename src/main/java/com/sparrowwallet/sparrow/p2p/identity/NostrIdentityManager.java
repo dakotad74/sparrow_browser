@@ -1,0 +1,353 @@
+package com.sparrowwallet.sparrow.p2p.identity;
+
+import com.sparrowwallet.drongo.SecureString;
+import com.sparrowwallet.sparrow.nostr.NostrCrypto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+/**
+ * Manages Nostr identities for P2P trading.
+ *
+ * Responsibilities:
+ * - Create and store identities (ephemeral and persistent)
+ * - Manage active identity selection
+ * - Handle identity lifecycle (expiration, deletion)
+ * - Persist identities to storage
+ * - Generate random display names for privacy
+ *
+ * Thread-safe implementation using ConcurrentHashMap.
+ */
+public class NostrIdentityManager {
+    private static final Logger log = LoggerFactory.getLogger(NostrIdentityManager.class);
+
+    private static NostrIdentityManager instance;
+
+    // In-memory storage (TODO: persist to disk)
+    private final Map<String, NostrIdentity> identities;
+    private NostrIdentity activeIdentity;
+
+    // Random name generation
+    private static final String[] ADJECTIVES = {
+        "Anonymous", "Silent", "Swift", "Phantom", "Shadow", "Ghost", "Quiet",
+        "Hidden", "Secret", "Private", "Stealth", "Crypto", "Digital", "Anon"
+    };
+
+    private static final SecureRandom random = new SecureRandom();
+
+    private NostrIdentityManager() {
+        this.identities = new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Get singleton instance
+     */
+    public static synchronized NostrIdentityManager getInstance() {
+        if (instance == null) {
+            instance = new NostrIdentityManager();
+        }
+        return instance;
+    }
+
+    /**
+     * Create a new ephemeral identity
+     */
+    public NostrIdentity createEphemeralIdentity() {
+        return createEphemeralIdentity(null);
+    }
+
+    /**
+     * Create a new ephemeral identity with optional custom name
+     */
+    public NostrIdentity createEphemeralIdentity(String displayName) {
+        try {
+            // Generate new keypair
+            String nsec = NostrCrypto.generateNostrPrivateKeyHex();
+            String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
+            String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+
+            // Generate random display name if not provided
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = generateRandomDisplayName();
+            }
+
+            NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, IdentityType.EPHEMERAL);
+
+            // Ephemeral identities expire after trade completion
+            // For now, set a default expiration time
+            identity.setExpiresAt(LocalDateTime.now().plusDays(7));
+            identity.setAutoDelete(true);
+
+            identities.put(identity.getId(), identity);
+            log.info("Created ephemeral identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
+
+            return identity;
+
+        } catch (Exception e) {
+            log.error("Failed to create ephemeral identity", e);
+            throw new RuntimeException("Failed to create ephemeral identity: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Create a new persistent identity
+     */
+    public NostrIdentity createPersistentIdentity(String displayName) {
+        try {
+            // Generate new keypair
+            String nsec = NostrCrypto.generateNostrPrivateKeyHex();
+            String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
+            String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+
+            // Persistent identities require a meaningful display name
+            if (displayName == null || displayName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Persistent identities require a display name");
+            }
+
+            NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, IdentityType.PERSISTENT);
+            identity.setAutoDelete(false);
+
+            identities.put(identity.getId(), identity);
+            log.info("Created persistent identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
+
+            // TODO: Persist to disk
+
+            return identity;
+
+        } catch (Exception e) {
+            log.error("Failed to create persistent identity", e);
+            throw new RuntimeException("Failed to create persistent identity: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Import an existing Nostr identity from nsec
+     */
+    public NostrIdentity importIdentity(String nsec, String displayName, IdentityType type) {
+        try {
+            String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
+            String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = type == IdentityType.EPHEMERAL ?
+                    generateRandomDisplayName() : "Imported_Identity";
+            }
+
+            NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, type);
+
+            identities.put(identity.getId(), identity);
+            log.info("Imported {} identity: {} ({})",
+                type.name().toLowerCase(), identity.getDisplayName(), identity.getShortNpub());
+
+            return identity;
+
+        } catch (Exception e) {
+            log.error("Failed to import identity", e);
+            throw new RuntimeException("Failed to import identity: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get all identities
+     */
+    public List<NostrIdentity> getAllIdentities() {
+        return new ArrayList<>(identities.values());
+    }
+
+    /**
+     * Get all active identities (not deleted or expired)
+     */
+    public List<NostrIdentity> getActiveIdentities() {
+        return identities.values().stream()
+            .filter(id -> id.isActive() && !id.isExpired())
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get ephemeral identities
+     */
+    public List<NostrIdentity> getEphemeralIdentities() {
+        return identities.values().stream()
+            .filter(NostrIdentity::isEphemeral)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get persistent identities
+     */
+    public List<NostrIdentity> getPersistentIdentities() {
+        return identities.values().stream()
+            .filter(NostrIdentity::isPersistent)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get identity by ID
+     */
+    public NostrIdentity getIdentity(String id) {
+        return identities.get(id);
+    }
+
+    /**
+     * Get identity by npub
+     */
+    public NostrIdentity getIdentityByNpub(String npub) {
+        return identities.values().stream()
+            .filter(id -> id.getNpub().equals(npub))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Get identity by hex pubkey
+     */
+    public NostrIdentity getIdentityByHex(String hex) {
+        return identities.values().stream()
+            .filter(id -> id.getHex().equals(hex))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Get or create the active identity
+     */
+    public NostrIdentity getOrCreateActiveIdentity() {
+        if (activeIdentity != null && activeIdentity.isActive() && !activeIdentity.isExpired()) {
+            return activeIdentity;
+        }
+
+        // Create a new ephemeral identity by default
+        activeIdentity = createEphemeralIdentity();
+        return activeIdentity;
+    }
+
+    /**
+     * Get the currently active identity
+     */
+    public NostrIdentity getActiveIdentity() {
+        return activeIdentity;
+    }
+
+    /**
+     * Set the active identity
+     */
+    public void setActiveIdentity(NostrIdentity identity) {
+        if (identity == null) {
+            throw new IllegalArgumentException("Identity cannot be null");
+        }
+
+        if (!identity.isActive()) {
+            throw new IllegalStateException("Cannot activate a non-active identity");
+        }
+
+        if (identity.isExpired()) {
+            throw new IllegalStateException("Cannot activate an expired identity");
+        }
+
+        this.activeIdentity = identity;
+        identity.setLastUsedAt(LocalDateTime.now());
+        log.info("Active identity changed to: {} ({})",
+            identity.getDisplayName(), identity.getShortNpub());
+    }
+
+    /**
+     * Delete an identity
+     */
+    public void deleteIdentity(String id) {
+        NostrIdentity identity = identities.get(id);
+        if (identity == null) {
+            return;
+        }
+
+        identity.delete();
+        log.info("Deleted identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
+
+        // If this was the active identity, clear it
+        if (activeIdentity != null && activeIdentity.getId().equals(id)) {
+            activeIdentity = null;
+        }
+
+        // TODO: Remove from persistent storage
+    }
+
+    /**
+     * Clean up expired ephemeral identities with auto-delete enabled
+     */
+    public void cleanupExpiredIdentities() {
+        List<NostrIdentity> toDelete = identities.values().stream()
+            .filter(NostrIdentity::isEphemeral)
+            .filter(NostrIdentity::isAutoDelete)
+            .filter(NostrIdentity::isExpired)
+            .collect(Collectors.toList());
+
+        for (NostrIdentity identity : toDelete) {
+            log.info("Auto-deleting expired ephemeral identity: {} ({})",
+                identity.getDisplayName(), identity.getShortNpub());
+            identities.remove(identity.getId());
+        }
+
+        if (!toDelete.isEmpty()) {
+            log.info("Cleaned up {} expired ephemeral identities", toDelete.size());
+        }
+    }
+
+    /**
+     * Generate a random display name for privacy
+     */
+    private String generateRandomDisplayName() {
+        String adjective = ADJECTIVES[random.nextInt(ADJECTIVES.length)];
+        String suffix = Integer.toHexString(random.nextInt(0xFFFF));
+        return adjective + "_" + suffix;
+    }
+
+    /**
+     * Get count of identities by type
+     */
+    public int getIdentityCount(IdentityType type) {
+        return (int) identities.values().stream()
+            .filter(id -> id.getType() == type)
+            .count();
+    }
+
+    /**
+     * Check if an identity with this npub already exists
+     */
+    public boolean identityExists(String npub) {
+        return getIdentityByNpub(npub) != null;
+    }
+
+    /**
+     * Export identity keys (for backup)
+     */
+    public Map<String, String> exportIdentity(String id) {
+        NostrIdentity identity = identities.get(id);
+        if (identity == null) {
+            throw new IllegalArgumentException("Identity not found: " + id);
+        }
+
+        Map<String, String> export = new HashMap<>();
+        export.put("id", identity.getId());
+        export.put("npub", identity.getNpub());
+        export.put("nsec", identity.getNsec());
+        export.put("hex", identity.getHex());
+        export.put("displayName", identity.getDisplayName());
+        export.put("type", identity.getType().name());
+
+        log.info("Exported identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
+        return export;
+    }
+
+    /**
+     * Clear all identities (for testing)
+     */
+    public void clearAll() {
+        identities.clear();
+        activeIdentity = null;
+        log.warn("Cleared all identities");
+    }
+}

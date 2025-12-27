@@ -254,4 +254,142 @@ public class NostrCrypto {
         }
         return sb.toString();
     }
+
+    /**
+     * Generate a new Nostr private key (hex format).
+     *
+     * @return 32-byte private key as hex string
+     */
+    public static String generateNostrPrivateKeyHex() {
+        ECKey key = new ECKey();
+        byte[] privKeyBytes = key.getPrivKeyBytes();
+        return bytesToHex(privKeyBytes);
+    }
+
+    /**
+     * Derive Nostr public key in npub format from hex private key.
+     *
+     * @param privateKeyHex 32-byte private key as hex string
+     * @return Public key in npub (bech32) format
+     */
+    public static String deriveNostrPublicKeyNpub(String privateKeyHex) {
+        try {
+            ECKey key = ECKey.fromPrivate(hexToBytes(privateKeyHex));
+            byte[] pubKeyBytes = key.getPubKeyXCoord();
+
+            // Convert to npub using bech32 encoding
+            // npub = bech32("npub", pubkey)
+            return Bech32.encode("npub", convertBits(pubKeyBytes, 8, 5, true));
+
+        } catch (Exception e) {
+            log.error("Failed to derive npub from private key", e);
+            throw new RuntimeException("Failed to derive npub: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Derive Nostr public key in hex format from hex private key.
+     *
+     * @param privateKeyHex 32-byte private key as hex string
+     * @return Public key as hex string
+     */
+    public static String deriveNostrPublicKeyHex(String privateKeyHex) {
+        try {
+            ECKey key = ECKey.fromPrivate(hexToBytes(privateKeyHex));
+            byte[] pubKeyBytes = key.getPubKeyXCoord();
+            return bytesToHex(pubKeyBytes);
+
+        } catch (Exception e) {
+            log.error("Failed to derive hex pubkey from private key", e);
+            throw new RuntimeException("Failed to derive pubkey: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Simple bech32 encoder for npub format.
+     * Based on BIP173 specification.
+     */
+    private static class Bech32 {
+        private static final String CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+        public static String encode(String hrp, byte[] data) {
+            byte[] checksum = createChecksum(hrp, data);
+            byte[] combined = new byte[data.length + checksum.length];
+            System.arraycopy(data, 0, combined, 0, data.length);
+            System.arraycopy(checksum, 0, combined, data.length, checksum.length);
+
+            StringBuilder sb = new StringBuilder(hrp + "1");
+            for (byte b : combined) {
+                sb.append(CHARSET.charAt(b));
+            }
+            return sb.toString();
+        }
+
+        private static byte[] createChecksum(String hrp, byte[] data) {
+            byte[] values = new byte[hrp.length() + 1 + data.length + 6];
+            int i = 0;
+            for (char c : hrp.toCharArray()) {
+                values[i++] = (byte) (c >> 5);
+            }
+            values[i++] = 0;
+            for (char c : hrp.toCharArray()) {
+                values[i++] = (byte) (c & 31);
+            }
+            for (byte b : data) {
+                values[i++] = b;
+            }
+
+            int polymod = polymodStep(values) ^ 1;
+            byte[] checksum = new byte[6];
+            for (int j = 0; j < 6; j++) {
+                checksum[j] = (byte) ((polymod >> (5 * (5 - j))) & 31);
+            }
+            return checksum;
+        }
+
+        private static int polymodStep(byte[] values) {
+            int[] GEN = {0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3};
+            int chk = 1;
+            for (byte v : values) {
+                int b = chk >> 25;
+                chk = ((chk & 0x1ffffff) << 5) ^ v;
+                for (int i = 0; i < 5; i++) {
+                    if (((b >> i) & 1) == 1) {
+                        chk ^= GEN[i];
+                    }
+                }
+            }
+            return chk;
+        }
+    }
+
+    /**
+     * Convert bits between different bases (for bech32 encoding).
+     */
+    private static byte[] convertBits(byte[] data, int fromBits, int toBits, boolean pad) {
+        int acc = 0;
+        int bits = 0;
+        int maxv = (1 << toBits) - 1;
+        java.util.ArrayList<Byte> ret = new java.util.ArrayList<>();
+
+        for (byte b : data) {
+            int value = b & 0xff;
+            acc = (acc << fromBits) | value;
+            bits += fromBits;
+            while (bits >= toBits) {
+                bits -= toBits;
+                ret.add((byte) ((acc >> bits) & maxv));
+            }
+        }
+
+        if (pad && bits > 0) {
+            ret.add((byte) ((acc << (toBits - bits)) & maxv));
+        }
+
+        byte[] result = new byte[ret.size()];
+        for (int i = 0; i < ret.size(); i++) {
+            result[i] = ret.get(i);
+        }
+        return result;
+    }
 }
