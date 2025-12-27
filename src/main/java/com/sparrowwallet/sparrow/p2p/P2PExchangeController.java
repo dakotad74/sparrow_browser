@@ -409,7 +409,7 @@ public class P2PExchangeController implements Initializable {
 
         try {
             javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
-                getClass().getResource("trade/create-offer-dialog.fxml")
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/trade/create-offer-dialog.fxml")
             );
             javafx.stage.Stage stage = new javafx.stage.Stage();
             stage.setTitle("Create Trade Offer - Sparrow");
