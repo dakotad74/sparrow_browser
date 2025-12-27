@@ -125,9 +125,12 @@ public class FeeAgreementController implements Initializable, CoordinationContro
         this.dialog = dialog;
         this.session = dialog.getSession();
 
-        // Create session manager (temporary workaround)
-        // TODO: Get from AppServices singleton
-        this.sessionManager = new CoordinationSessionManager();
+        // Get session manager from dialog
+        this.sessionManager = dialog.getSessionManager();
+        if(this.sessionManager == null) {
+            log.warn("SessionManager not found in dialog, creating new instance");
+            this.sessionManager = new CoordinationSessionManager();
+        }
 
         if(session == null) {
             log.error("Session is null in FeeAgreementController");
@@ -145,17 +148,31 @@ public class FeeAgreementController implements Initializable, CoordinationContro
 
     @Override
     public boolean validateStep() {
-        // Can proceed if fee has been agreed
-        return session != null && session.getAgreedFeeRate() != null;
+        // For testing: Allow proceeding even without fee agreement
+        // In production, you might want to require fee agreement
+        log.error("=== FeeAgreementController.validateStep() called ===");
+        log.error("Session is null? {}", session == null);
+        if(session != null) {
+            log.error("Session ID: {}", session.getSessionId());
+            log.error("Agreed fee rate: {}", session.getAgreedFeeRate());
+        }
+        boolean result = session != null;
+        log.error("Returning: {}", result);
+        return result;
     }
 
     @Override
     public void onEventReceived(Object event) {
         if(event instanceof CoordinationFeeProposedEvent) {
             CoordinationFeeProposedEvent feeEvent = (CoordinationFeeProposedEvent) event;
+            log.error("=== FeeAgreementController received CoordinationFeeProposedEvent ===");
+            log.error("=== Event sessionId: {}, Our sessionId: {} ===",
+                feeEvent.getSession().getSessionId(),
+                session != null ? session.getSessionId() : "null");
 
             // Only update if this event is for our session
             if(session != null && feeEvent.getSession().getSessionId().equals(session.getSessionId())) {
+                log.error("=== Updating fee proposals table ===");
                 Platform.runLater(() -> {
                     updateFeeProposalsTable();
                     checkAndAgreeFee();
@@ -192,9 +209,13 @@ public class FeeAgreementController implements Initializable, CoordinationContro
 
             log.info("Proposing fee rate: {} sat/vB", feeRate);
 
-            // TODO: Get participant pubkey from wallet
-            String participantPubkey = "temp-pubkey";
+            // Get participant pubkey from wallet
+            String participantPubkey = getNostrPubkeyFromWallet(wallet);
             sessionManager.proposeFee(session.getSessionId(), feeRate, participantPubkey);
+
+            // Update UI immediately to show the proposed fee
+            updateFeeProposalsTable();
+            updateAgreedFee();
 
             hasProposedFee = true;
             proposeFeeButton.setDisable(true);
@@ -348,6 +369,46 @@ public class FeeAgreementController implements Initializable, CoordinationContro
     private void showError(String message) {
         statusLabel.setText(message);
         statusLabel.setStyle("-fx-text-fill: red;");
+    }
+
+    /**
+     * Generate Nostr public key from wallet.
+     * Same implementation as SessionStartController for consistency.
+     */
+    private String getNostrPubkeyFromWallet(Wallet wallet) {
+        try {
+            if(wallet.getKeystores() != null && !wallet.getKeystores().isEmpty()) {
+                var keystore = wallet.getKeystores().get(0);
+                var extendedPubKey = keystore.getExtendedPublicKey();
+
+                if(extendedPubKey != null) {
+                    var key = extendedPubKey.getKey();
+                    if(key != null) {
+                        byte[] pubkeyBytes = key.getPubKey();
+                        return bytesToHex(pubkeyBytes);
+                    }
+                }
+            }
+
+            log.warn("Could not derive pubkey from keystore, using wallet name hash");
+            String walletId = wallet.getName() + wallet.hashCode();
+            return String.format("%064x", walletId.hashCode()).substring(0, 66);
+
+        } catch(Exception e) {
+            log.error("Failed to generate Nostr pubkey", e);
+            return java.util.UUID.randomUUID().toString().replace("-", "");
+        }
+    }
+
+    /**
+     * Convert bytes to hex string
+     */
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for(byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     /**

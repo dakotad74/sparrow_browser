@@ -94,8 +94,8 @@ public class Config {
     private boolean nostrEnabled = true;
     private List<String> nostrRelays = List.of(
         "wss://relay.damus.io",
-        "wss://nostr.wine",
-        "wss://relay.nostr.band"
+        "wss://nos.lol",
+        "wss://relay.snort.social"
     );
 
     private static Config INSTANCE;

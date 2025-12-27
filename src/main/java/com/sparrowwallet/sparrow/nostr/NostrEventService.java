@@ -11,17 +11,20 @@ import javafx.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Background service managing Nostr relay connections and event processing.
  * Extends JavaFX ScheduledService for integration with Sparrow's async architecture.
  */
-public class NostrEventService extends ScheduledService<Void> {
+public class NostrEventService extends ScheduledService<Boolean> {
     private static final Logger log = LoggerFactory.getLogger(NostrEventService.class);
 
     private NostrRelayManager relayManager;
     private boolean initialized = false;
+    private boolean subscribed = false;
 
     public NostrEventService() {
         setOnSucceeded(event -> {
@@ -38,21 +41,36 @@ public class NostrEventService extends ScheduledService<Void> {
     }
 
     @Override
-    protected Task<Void> createTask() {
+    protected Task<Boolean> createTask() {
         return new Task<>() {
             @Override
-            protected Void call() throws Exception {
+            protected Boolean call() throws Exception {
                 if(!initialized) {
                     initialize();
                 }
 
-                // Periodic health check
-                if(relayManager != null && !relayManager.isConnected()) {
-                    log.warn("Nostr relays disconnected, attempting to reconnect...");
-                    relayManager.connect();
+                // Subscribe to coordination events once connected
+                if(initialized && !subscribed && relayManager != null) {
+                    int connectedCount = relayManager.getConnectedRelayCount();
+
+                    if(connectedCount > 0) {
+                        log.warn("Relays connected ({}), subscribing to coordination events...", connectedCount);
+                        subscribeToCoordinationEvents();
+                        subscribed = true;
+                    }
                 }
 
-                return null;
+                // Periodic health check - only reconnect if we had a connection before
+                if(initialized && relayManager != null && subscribed) {
+                    int connectedCount = relayManager.getConnectedRelayCount();
+                    if(connectedCount == 0) {
+                        log.warn("All relays disconnected, attempting to reconnect...");
+                        relayManager.connect();
+                        subscribed = false; // Reset subscription flag to resubscribe after reconnect
+                    }
+                }
+
+                return true; // Always return success to allow periodic re-execution
             }
         };
     }
@@ -69,12 +87,15 @@ public class NostrEventService extends ScheduledService<Void> {
                 return;
             }
 
-            List<String> relayUrls = config.getNostrRelays();
-            if(relayUrls == null || relayUrls.isEmpty()) {
-                log.warn("No Nostr relays configured");
-                return;
-            }
+            // TEMPORARY FIX: Override config relays with working ones
+            // TODO: Remove this override once config persistence is fixed
+            List<String> relayUrls = List.of(
+                "wss://relay.damus.io",
+                "wss://nos.lol",
+                "wss://relay.snort.social"
+            );
 
+            log.warn("Using hardcoded relay list (temporary fix for testing)");
             log.info("Initializing Nostr service with {} relays", relayUrls.size());
 
             relayManager = new NostrRelayManager(relayUrls);
@@ -87,12 +108,13 @@ public class NostrEventService extends ScheduledService<Void> {
             //     log.info("Tor is running, Nostr traffic will be routed through Tor");
             // }
 
-            // Connect to relays (stub implementation for Phase 1)
+            // Connect to relays
             relayManager.connect();
 
             initialized = true;
 
             log.info("Nostr service initialized successfully");
+            log.info("Will subscribe to coordination events once connected");
 
         } catch(Exception e) {
             log.error("Failed to initialize Nostr service", e);
@@ -116,9 +138,18 @@ public class NostrEventService extends ScheduledService<Void> {
             return;
         }
 
-        // TODO: Implement subscription to kind 38383 events
-        // This will be implemented in Phase 2
-        log.info("Subscribed to coordination events");
+        // Create filter for coordination events (kind: 38383)
+        Map<String, Object> filter = new HashMap<>();
+        filter.put("kinds", List.of(NostrEvent.KIND_COORDINATION));
+
+        // Subscribe since now (don't fetch old events)
+        filter.put("since", System.currentTimeMillis() / 1000);
+
+        // Generate unique subscription ID
+        String subscriptionId = "coordination-" + System.currentTimeMillis();
+
+        log.info("Subscribing to coordination events (kind: {})", NostrEvent.KIND_COORDINATION);
+        relayManager.subscribe(subscriptionId, filter);
     }
 
     /**

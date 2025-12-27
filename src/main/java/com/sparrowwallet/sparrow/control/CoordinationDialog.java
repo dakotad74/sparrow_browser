@@ -38,6 +38,7 @@ public class CoordinationDialog extends Dialog<PSBT> {
     private CoordinationController controller;
 
     private CoordinationSession session;
+    private com.sparrowwallet.sparrow.coordination.CoordinationSessionManager sessionManager;
     private PSBT createdPSBT;
 
     private final ButtonType finishButtonType;
@@ -97,11 +98,11 @@ public class CoordinationDialog extends Dialog<PSBT> {
             }
         });
 
-        // Set dialog size
-        getDialogPane().setPrefWidth(800);
-        getDialogPane().setPrefHeight(600);
-        getDialogPane().setMinWidth(700);
-        getDialogPane().setMinHeight(500);
+        // Set dialog size - larger to accommodate all steps and navigation buttons
+        getDialogPane().setPrefWidth(900);
+        getDialogPane().setPrefHeight(750);
+        getDialogPane().setMinWidth(800);
+        getDialogPane().setMinHeight(650);
     }
 
     /**
@@ -116,6 +117,20 @@ public class CoordinationDialog extends Dialog<PSBT> {
      */
     public CoordinationSession getSession() {
         return session;
+    }
+
+    /**
+     * Set the session manager
+     */
+    public void setSessionManager(com.sparrowwallet.sparrow.coordination.CoordinationSessionManager sessionManager) {
+        this.sessionManager = sessionManager;
+    }
+
+    /**
+     * Get the session manager
+     */
+    public com.sparrowwallet.sparrow.coordination.CoordinationSessionManager getSessionManager() {
+        return sessionManager;
     }
 
     /**

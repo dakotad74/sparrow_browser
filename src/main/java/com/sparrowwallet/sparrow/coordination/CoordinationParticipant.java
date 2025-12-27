@@ -1,5 +1,7 @@
 package com.sparrowwallet.sparrow.coordination;
 
+import com.sparrowwallet.drongo.psbt.PSBT;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +16,7 @@ public class CoordinationParticipant {
     private ParticipantStatus status;
     private final List<CoordinationOutput> proposedOutputs;
     private CoordinationFeeProposal feeProposal;
+    private PSBT signedPSBT;
     private final LocalDateTime joinedAt;
 
     public CoordinationParticipant(String pubkey) {
@@ -85,6 +88,18 @@ public class CoordinationParticipant {
         return status == ParticipantStatus.READY;
     }
 
+    public PSBT getSignedPSBT() {
+        return signedPSBT;
+    }
+
+    public void setSignedPSBT(PSBT signedPSBT) {
+        this.signedPSBT = signedPSBT;
+    }
+
+    public boolean hasSigned() {
+        return signedPSBT != null;
+    }
+
     @Override
     public String toString() {
         return "CoordinationParticipant{" +
@@ -93,6 +108,7 @@ public class CoordinationParticipant {
                 ", status=" + status +
                 ", proposedOutputs=" + proposedOutputs.size() +
                 ", hasProposedFee=" + hasProposedFee() +
+                ", hasSigned=" + hasSigned() +
                 '}';
     }
 

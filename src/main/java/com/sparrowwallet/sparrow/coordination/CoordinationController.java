@@ -98,30 +98,42 @@ public class CoordinationController implements Initializable {
      */
     private void loadStep(CoordinationStep step) {
         try {
-            log.debug("Loading coordination step: {}", step.getTitle());
+            log.error("=== LOADING STEP: {} ===", step.getTitle());
+            log.error("FXML path: {}", step.getFxmlPath());
 
             // Load FXML for this step
             FXMLLoader loader = new FXMLLoader(getClass().getResource(step.getFxmlPath()));
+            log.error("FXMLLoader created, loading...");
             Parent stepPane = loader.load();
+            log.error("FXML loaded successfully");
 
             // Get controller
             currentStepController = loader.getController();
+            log.error("Controller obtained: {}", currentStepController != null ? currentStepController.getClass().getName() : "null");
 
             // Initialize controller if needed
             if(currentStepController instanceof StepController) {
+                log.error("Initializing StepController...");
                 ((StepController) currentStepController).initializeStep(wallet, dialog);
+                log.error("StepController initialized");
             }
 
             // Update UI
             contentPane.getChildren().setAll(stepPane);
             stepLabel.setText(step.getTitle());
             currentStep = step;
+            log.error("UI updated, currentStep now: {}", currentStep);
 
             // Update button states
             updateButtonStates();
+            log.error("=== STEP LOADED SUCCESSFULLY ===");
 
         } catch(IOException e) {
-            log.error("Failed to load step: {}", step, e);
+            log.error("=== FAILED TO LOAD STEP: {} ===", step, e);
+            e.printStackTrace();
+        } catch(Exception e) {
+            log.error("=== UNEXPECTED ERROR LOADING STEP: {} ===", step, e);
+            e.printStackTrace();
         }
     }
 
@@ -156,18 +168,28 @@ public class CoordinationController implements Initializable {
      */
     @FXML
     private void goNext() {
+        log.error("=== NEXT BUTTON CLICKED === Current step: {}", currentStep);
+
         // Validate current step before proceeding
         if(currentStepController instanceof StepController) {
-            if(!((StepController) currentStepController).validateStep()) {
-                log.debug("Step validation failed");
+            boolean valid = ((StepController) currentStepController).validateStep();
+            log.error("Step validation result: {}", valid);
+            if(!valid) {
+                log.error("Step validation FAILED - cannot proceed");
                 return;
             }
+        } else {
+            log.error("Current controller is NOT a StepController: {}",
+                currentStepController != null ? currentStepController.getClass().getName() : "null");
         }
 
         // Move to next step
         CoordinationStep nextStep = getNextStep(currentStep);
+        log.error("Next step: {}", nextStep);
         if(nextStep != null) {
             loadStep(nextStep);
+        } else {
+            log.error("No next step available!");
         }
     }
 
@@ -208,9 +230,41 @@ public class CoordinationController implements Initializable {
     // Event handlers (called by CoordinationDialog)
 
     public void onSessionCreated(CoordinationSessionCreatedEvent event) {
-        log.debug("Session created event received");
+        log.error("=== Session created event received for session: {} ===", event.getSession().getSessionId());
+
+        // Check if this is a remote session (discovered via Nostr) vs local session we created
+        boolean isRemoteSession = dialog.getSessionManager() != null &&
+                                  dialog.getSessionManager().getSession(event.getSession().getSessionId()) != null &&
+                                  !dialog.getSessionManager().isLocalSession(event.getSession().getSessionId());
+
+        log.error("=== Is remote session: {} ===", isRemoteSession);
+
         // Auto-advance to waiting participants step
         loadStep(CoordinationStep.WAITING_PARTICIPANTS);
+
+        // If this is a remote session, automatically join it
+        if(isRemoteSession && wallet != null) {
+            log.error("=== Auto-joining remote session: {} ===", event.getSession().getSessionId());
+            try {
+                // Extract participant info from wallet
+                String participantName = wallet.getName();
+                String xpub = wallet.getKeystores().get(0).getExtendedPublicKey().toString();
+
+                // Get participant pubkey (same as Nostr pubkey)
+                String participantPubkey = dialog.getSessionManager().getMyNostrPubkey();
+
+                // Join the session
+                dialog.getSessionManager().joinSession(
+                    event.getSession().getSessionId(),
+                    wallet,
+                    participantPubkey
+                );
+
+                log.error("=== Successfully auto-joined session ===");
+            } catch(Exception e) {
+                log.error("Failed to auto-join remote session", e);
+            }
+        }
     }
 
     public void onParticipantJoined(CoordinationParticipantJoinedEvent event) {

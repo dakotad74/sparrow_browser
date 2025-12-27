@@ -1,8 +1,13 @@
 package com.sparrowwallet.sparrow.coordination;
 
+import com.sparrowwallet.drongo.SecureString;
 import com.sparrowwallet.drongo.psbt.PSBT;
+import com.sparrowwallet.drongo.psbt.PSBTInput;
 import com.sparrowwallet.drongo.wallet.Wallet;
+import com.sparrowwallet.drongo.wallet.WalletNode;
+import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.control.CoordinationDialog;
+import com.sparrowwallet.sparrow.control.WalletPasswordDialog;
 import com.sparrowwallet.sparrow.event.CoordinationPSBTCreatedEvent;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -13,6 +18,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.text.DecimalFormat;
+import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
@@ -49,8 +56,9 @@ public class FinalizationController implements Initializable, CoordinationContro
     @FXML
     private ListView<String> outputsList;
 
-    @FXML
-    private ListView<String> participantsList;
+    // COMMENTED OUT - participantsList doesn't exist in finalization.fxml
+    // @FXML
+    // private ListView<String> participantsList;
 
     @FXML
     private Label statusLabel;
@@ -150,8 +158,12 @@ public class FinalizationController implements Initializable, CoordinationContro
                 log.info("Creating PSBT for session: {}", session.getSessionId());
 
                 // Build PSBT using CoordinationPSBTBuilder
-                // TODO: Get current block height from AppServices or ElectrumServer
-                Integer currentBlockHeight = 0; // Placeholder
+                // Get current block height from AppServices
+                Integer currentBlockHeight = AppServices.getCurrentBlockHeight();
+                if(currentBlockHeight == null) {
+                    log.warn("Current block height is null, using 0 as fallback");
+                    currentBlockHeight = 0;
+                }
                 PSBT psbt = CoordinationPSBTBuilder.buildPSBT(session, wallet, currentBlockHeight);
 
                 log.info("PSBT created successfully: {} inputs, {} outputs",
@@ -185,20 +197,129 @@ public class FinalizationController implements Initializable, CoordinationContro
         // Store PSBT in dialog (will be returned when dialog closes)
         dialog.setPSBT(psbt);
 
-        statusLabel.setText("PSBT created successfully! You can now close this dialog to sign the transaction.");
-        statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+        log.info("PSBT created, now signing and publishing to participants");
 
-        log.info("PSBT set in dialog, ready for signing");
+        // Automatically sign and publish the PSBT
+        signAndPublishPSBT(psbt);
+    }
 
-        // Show success info
-        showInfo("PSBT Created",
-                "The coordinated PSBT has been created successfully.\n\n" +
-                "This PSBT contains the coordinated outputs with your inputs and change.\n\n" +
-                "Next steps:\n" +
-                "1. Other participants will create their PSBTs with their inputs\n" +
-                "2. Combine all PSBTs using Tools > Combine PSBTs\n" +
-                "3. Sign the combined PSBT\n" +
-                "4. Broadcast the signed transaction");
+    /**
+     * Sign the PSBT with the wallet and publish to Nostr
+     */
+    private void signAndPublishPSBT(PSBT psbt) {
+        progressBar.setVisible(true);
+        progressLabel.setVisible(true);
+        progressLabel.setText("Signing PSBT...");
+        statusLabel.setText("Signing your PSBT...");
+
+        new Thread(() -> {
+            try {
+                // Sign the PSBT with the wallet
+                Wallet signingWallet = wallet.copy();
+
+                if(signingWallet.isEncrypted()) {
+                    Platform.runLater(() -> {
+                        promptForPasswordAndSign(psbt, signingWallet);
+                    });
+                } else {
+                    signAndPublish(psbt, signingWallet);
+                }
+
+            } catch(Exception e) {
+                log.error("Failed to sign PSBT", e);
+                Platform.runLater(() -> {
+                    progressBar.setVisible(false);
+                    progressLabel.setVisible(false);
+                    showError("Failed to sign PSBT: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * Prompt for wallet password and sign
+     */
+    private void promptForPasswordAndSign(PSBT psbt, Wallet encryptedWallet) {
+        WalletPasswordDialog dlg = new WalletPasswordDialog(encryptedWallet.getMasterName(),
+            WalletPasswordDialog.PasswordRequirement.LOAD);
+        Optional<SecureString> password = dlg.showAndWait();
+
+        if(password.isPresent()) {
+            progressLabel.setText("Decrypting wallet...");
+
+            new Thread(() -> {
+                try {
+                    Wallet decryptedWallet = encryptedWallet.copy();
+                    decryptedWallet.decrypt(password.get());
+                    signAndPublish(psbt, decryptedWallet);
+                } catch(Exception e) {
+                    log.error("Failed to decrypt wallet", e);
+                    Platform.runLater(() -> {
+                        progressBar.setVisible(false);
+                        progressLabel.setVisible(false);
+                        showError("Failed to decrypt wallet: " + e.getMessage());
+                    });
+                }
+            }).start();
+        } else {
+            progressBar.setVisible(false);
+            progressLabel.setVisible(false);
+            statusLabel.setText("Signing cancelled. Close dialog to sign manually.");
+        }
+    }
+
+    /**
+     * Sign the PSBT and publish to Nostr
+     */
+    private void signAndPublish(PSBT psbt, Wallet unencryptedWallet) {
+        try {
+            log.info("Signing PSBT with wallet: {}", unencryptedWallet.getName());
+
+            // Sign the PSBT
+            Map<PSBTInput, WalletNode> signingNodes = unencryptedWallet.getSigningNodes(psbt);
+            unencryptedWallet.sign(signingNodes);
+
+            log.info("PSBT signed successfully");
+
+            // Publish to Nostr
+            Platform.runLater(() -> {
+                progressLabel.setText("Publishing to participants...");
+            });
+
+            CoordinationSessionManager sessionManager = dialog.getSessionManager();
+            if(sessionManager != null) {
+                sessionManager.publishSignedPSBT(session.getSessionId(), psbt);
+                log.info("Published signed PSBT to Nostr");
+
+                Platform.runLater(() -> {
+                    progressBar.setVisible(false);
+                    progressLabel.setVisible(false);
+                    statusLabel.setText("PSBT signed and published! Waiting for other participants...");
+                    statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+
+                    showInfo("PSBT Signed and Published",
+                        "Your PSBT has been signed and published to participants.\n\n" +
+                        "Waiting for other participants to sign their PSBTs.\n" +
+                        "The transaction will be automatically combined and finalized " +
+                        "when all participants have signed.");
+                });
+            } else {
+                log.error("SessionManager is null, cannot publish PSBT");
+                Platform.runLater(() -> {
+                    progressBar.setVisible(false);
+                    progressLabel.setVisible(false);
+                    showError("Session manager not available");
+                });
+            }
+
+        } catch(Exception e) {
+            log.error("Failed to sign or publish PSBT", e);
+            Platform.runLater(() -> {
+                progressBar.setVisible(false);
+                progressLabel.setVisible(false);
+                showError("Failed to sign or publish PSBT: " + e.getMessage());
+            });
+        }
     }
 
     /**
@@ -265,6 +386,13 @@ public class FinalizationController implements Initializable, CoordinationContro
      * Display participants list
      */
     private void displayParticipants() {
+        // TODO: participantsList element doesn't exist in finalization.fxml
+        // For now, just update the participant count label
+        if(session != null && session.getParticipants() != null) {
+            participantCountLabel.setText(String.valueOf(session.getParticipants().size()));
+        }
+
+        /* COMMENTED OUT - participantsList doesn't exist in FXML
         participantsList.getItems().clear();
 
         for(CoordinationParticipant participant : session.getParticipants()) {
@@ -274,17 +402,23 @@ public class FinalizationController implements Initializable, CoordinationContro
             String participantStr = String.format("%s - %s", name, status);
             participantsList.getItems().add(participantStr);
         }
+        */
     }
 
     /**
      * Get participant name from pubkey
      */
     private String getParticipantName(String pubkey) {
+        log.error("=== getParticipantName called with pubkey: {} ===", pubkey);
         for(CoordinationParticipant participant : session.getParticipants()) {
+            log.error("=== Checking participant: pubkey={}, name={} ===", participant.getPubkey(), participant.getName());
             if(participant.getPubkey().equals(pubkey)) {
-                return participant.getName() != null ? participant.getName() : "Participant";
+                String name = participant.getName() != null ? participant.getName() : "Participant";
+                log.error("=== Found participant, returning name: {} ===", name);
+                return name;
             }
         }
+        log.error("=== Participant not found, returning 'Unknown' ===");
         return "Unknown";
     }
 

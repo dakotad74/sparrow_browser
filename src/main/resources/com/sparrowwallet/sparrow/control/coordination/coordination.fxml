@@ -26,11 +26,13 @@
 
     <center>
         <!-- Dynamic content pane - steps will be loaded here -->
-        <StackPane fx:id="contentPane" styleClass="content-pane">
-            <padding>
-                <Insets top="20" right="20" bottom="20" left="20"/>
-            </padding>
-        </StackPane>
+        <ScrollPane fitToWidth="true" fitToHeight="false" styleClass="content-scroll">
+            <StackPane fx:id="contentPane" styleClass="content-pane">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+            </StackPane>
+        </ScrollPane>
     </center>
 
     <bottom>

@@ -205,13 +205,16 @@ public class AppServices {
     }
 
     public void start() {
+        log.error("=== AppServices.start() called ===");
         Config config = Config.get();
         connectionService = createConnectionService();
         feeRatesService = createFeeRatesService();
         ratesService = createRatesService(config.getExchangeSource(), config.getFiatCurrency());
         versionCheckService = createVersionCheckService();
         torService = createTorService();
+        log.error("=== About to create NostrEventService ===");
         nostrEventService = createNostrEventService();
+        log.error("=== NostrEventService created: {} ===", nostrEventService != null);
         preventSleepService = createPreventSleepService();
 
         onlineProperty.addListener(onlineServicesListener);
@@ -463,8 +466,10 @@ public class AppServices {
     }
 
     private com.sparrowwallet.sparrow.nostr.NostrEventService createNostrEventService() {
+        log.error("=== createNostrEventService() called ===");
         com.sparrowwallet.sparrow.nostr.NostrEventService nostrService = new com.sparrowwallet.sparrow.nostr.NostrEventService();
-        nostrService.setPeriod(javafx.util.Duration.minutes(5)); // Health check every 5 minutes
+        nostrService.setDelay(javafx.util.Duration.seconds(3)); // Start checking after 3 seconds
+        nostrService.setPeriod(javafx.util.Duration.seconds(10)); // Check every 10 seconds for subscriptions and health
         nostrService.setRestartOnFailure(true);
 
         nostrService.setOnFailed(workerStateEvent -> {
@@ -472,8 +477,14 @@ public class AppServices {
         });
 
         // Start service if Nostr is enabled in config
-        if(Config.get().isNostrEnabled()) {
+        boolean nostrEnabled = Config.get().isNostrEnabled();
+        log.error("=== Nostr enabled in config: {} ===", nostrEnabled);
+        if(nostrEnabled) {
+            log.error("=== Starting Nostr service... ===");
             nostrService.start();
+            log.error("=== Nostr service started ===");
+        } else {
+            log.error("=== Nostr is DISABLED in config ===");
         }
 
         return nostrService;

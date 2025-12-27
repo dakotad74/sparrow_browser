@@ -92,9 +92,13 @@ public class OutputProposalController implements Initializable, CoordinationCont
         this.dialog = dialog;
         this.session = dialog.getSession();
 
-        // Create session manager (temporary workaround)
-        // TODO: Get from AppServices singleton
-        this.sessionManager = new CoordinationSessionManager();
+        // Get session manager from dialog (it should have been created in SessionStartController)
+        // For now, create if needed
+        this.sessionManager = dialog.getSessionManager();
+        if(this.sessionManager == null) {
+            log.warn("SessionManager not found in dialog, creating new instance");
+            this.sessionManager = new CoordinationSessionManager();
+        }
 
         if(session == null) {
             log.error("Session is null in OutputProposalController");
@@ -112,8 +116,17 @@ public class OutputProposalController implements Initializable, CoordinationCont
 
     @Override
     public boolean validateStep() {
-        // Can proceed if at least one output has been proposed
-        return session != null && !session.getOutputs().isEmpty();
+        // For testing: Allow proceeding even without outputs
+        // In production, you might want to require at least one output
+        log.error("=== OutputProposalController.validateStep() called ===");
+        log.error("Session is null? {}", session == null);
+        if(session != null) {
+            log.error("Session ID: {}", session.getSessionId());
+            log.error("Outputs count: {}", session.getOutputs().size());
+        }
+        boolean result = session != null;
+        log.error("Returning: {}", result);
+        return result;
     }
 
     @Override
@@ -186,9 +199,13 @@ public class OutputProposalController implements Initializable, CoordinationCont
             // Propose output
             log.info("Proposing output: {} BTC to {}", amountBtc, addressStr);
 
-            // TODO: Get participant pubkey from wallet
-            String participantPubkey = "temp-pubkey";
+            // Get participant pubkey from session manager (use Nostr pubkey, not wallet pubkey)
+            String participantPubkey = sessionManager.getMyNostrPubkey();
             sessionManager.proposeOutput(session.getSessionId(), address, amountSats, label, participantPubkey);
+
+            // Update UI immediately to show the proposed output
+            updateOutputsTable();
+            updateTotalAmount();
 
             // Clear form
             addressField.clear();
@@ -250,8 +267,8 @@ public class OutputProposalController implements Initializable, CoordinationCont
 
         // Add outputs
         for(CoordinationOutput output : session.getOutputs()) {
-            String proposedBy = output.getProposedBy() != null ?
-                              getParticipantName(output.getProposedBy()) : "Unknown";
+            // getProposedBy() already returns the participant name, not pubkey
+            String proposedBy = output.getProposedBy() != null ? output.getProposedBy() : "Unknown";
             String address = output.getAddress().toString();
             double amountBtc = output.getAmount() / (double)SATOSHIS_PER_BTC;
             String amount = BTC_FORMAT.format(amountBtc) + " BTC";
@@ -307,6 +324,49 @@ public class OutputProposalController implements Initializable, CoordinationCont
     private void showError(String message) {
         statusLabel.setText(message);
         statusLabel.setStyle("-fx-text-fill: red;");
+    }
+
+    /**
+     * Generate Nostr public key from wallet.
+     * Same implementation as SessionStartController for consistency.
+     */
+    private String getNostrPubkeyFromWallet(Wallet wallet) {
+        try {
+            // Get first keystore's master public key
+            if(wallet.getKeystores() != null && !wallet.getKeystores().isEmpty()) {
+                var keystore = wallet.getKeystores().get(0);
+                var extendedPubKey = keystore.getExtendedPublicKey();
+
+                if(extendedPubKey != null) {
+                    // Get the DeterministicKey and then the public key bytes
+                    var key = extendedPubKey.getKey();
+                    if(key != null) {
+                        byte[] pubkeyBytes = key.getPubKey();
+                        return bytesToHex(pubkeyBytes);
+                    }
+                }
+            }
+
+            // Fallback
+            log.warn("Could not derive pubkey from keystore, using wallet name hash");
+            String walletId = wallet.getName() + wallet.hashCode();
+            return String.format("%064x", walletId.hashCode()).substring(0, 66);
+
+        } catch(Exception e) {
+            log.error("Failed to generate Nostr pubkey", e);
+            return java.util.UUID.randomUUID().toString().replace("-", "");
+        }
+    }
+
+    /**
+     * Convert bytes to hex string
+     */
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for(byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     /**

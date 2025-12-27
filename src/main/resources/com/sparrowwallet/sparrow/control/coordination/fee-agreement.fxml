@@ -4,95 +4,75 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.sparrowwallet.sparrow.coordination.FeeAgreementController"
-            styleClass="fee-agreement-step">
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.sparrowwallet.sparrow.coordination.FeeAgreementController"
+      spacing="20"
+      alignment="TOP_CENTER"
+      styleClass="fee-agreement-step">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
 
-    <top>
-        <VBox spacing="10">
-            <padding>
-                <Insets top="10" right="20" bottom="10" left="20"/>
-            </padding>
+    <Label text="Agree on Transaction Fee"
+           styleClass="step-title"/>
 
-            <Label text="Agree on Transaction Fee"
-                   styleClass="step-title"/>
+    <Label text="All participants propose their preferred fee rate. The highest fee rate will be selected to ensure timely confirmation."
+           wrapText="true"
+           styleClass="instruction-text"/>
 
-            <Label text="All participants propose their preferred fee rate. The highest fee rate will be selected to ensure timely confirmation."
-                   wrapText="true"
-                   styleClass="instruction-text"/>
+    <Separator/>
 
-            <Separator/>
-        </VBox>
-    </top>
+    <!-- Fee Proposals Table -->
+    <VBox spacing="5">
+        <Label text="Fee Rate Proposals:" styleClass="section-label"/>
 
-    <center>
-        <VBox spacing="20">
-            <padding>
-                <Insets top="10" right="20" bottom="10" left="20"/>
-            </padding>
+        <TableView fx:id="feeProposalsTable" styleClass="fee-proposals-table" prefHeight="120">
+            <columns>
+                <TableColumn fx:id="participantColumn" text="Participant" prefWidth="200"/>
+                <TableColumn fx:id="feeRateColumn" text="Fee Rate (sat/vB)" prefWidth="150"/>
+                <TableColumn fx:id="proposedAtColumn" text="Proposed At" prefWidth="150"/>
+            </columns>
+        </TableView>
 
-            <!-- Fee Proposals Table -->
-            <VBox spacing="5" VBox.vgrow="ALWAYS">
-                <Label text="Fee Rate Proposals:" styleClass="section-label"/>
+        <Label fx:id="proposalCountLabel" text="0 proposals received" styleClass="count-label"/>
+    </VBox>
 
-                <TableView fx:id="feeProposalsTable" styleClass="fee-proposals-table" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn text="Participant" prefWidth="200"/>
-                        <TableColumn text="Fee Rate (sat/vB)" prefWidth="150"/>
-                        <TableColumn text="Proposed At" prefWidth="150"/>
-                    </columns>
-                </TableView>
+    <Separator/>
 
-                <Label fx:id="proposalCountLabel" text="0 proposals received" styleClass="count-label"/>
-            </VBox>
+    <!-- Fee Rate Selector -->
+    <VBox spacing="10" styleClass="fee-selector-container">
+        <Label text="Your Fee Rate Proposal:" styleClass="section-label"/>
 
-            <Separator/>
-
-            <!-- Fee Rate Selector -->
-            <VBox spacing="10" styleClass="fee-selector-container">
-                <Label text="Your Fee Rate Proposal:" styleClass="section-label"/>
-
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label text="Fee Rate (sat/vB):"/>
-                    <Slider fx:id="feeRateSlider" min="1" max="100" value="10" showTickLabels="true" showTickMarks="true" prefWidth="300"/>
-                    <TextField fx:id="feeRateField" text="10" prefWidth="80"/>
-                    <Label text="sat/vB"/>
-                </HBox>
-
-                <Label fx:id="feeEstimateLabel" text="Estimated fee: ~0.00000000 BTC" styleClass="estimate-label"/>
-
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Button fx:id="proposeFeeButton" text="Propose Fee Rate" styleClass="primary-button" onAction="#proposeFee"/>
-                    <Label fx:id="proposalStatusLabel" text="" styleClass="status-text"/>
-                </HBox>
-            </VBox>
-
-            <Separator/>
-
-            <!-- Agreed Fee Display -->
-            <VBox spacing="10" styleClass="agreed-fee-container">
-                <Label text="Agreed Fee Rate:" styleClass="section-label"/>
-
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label fx:id="agreedFeeLabel" text="Not yet agreed" styleClass="agreed-fee-label"/>
-                    <Label fx:id="agreedFeeExplanation" text="(waiting for all participants to propose)" styleClass="explanation-text"/>
-                </HBox>
-
-                <Label fx:id="statusLabel" text="" styleClass="status-text"/>
-            </VBox>
-
-        </VBox>
-    </center>
-
-    <bottom>
-        <HBox spacing="10" alignment="CENTER_RIGHT">
-            <padding>
-                <Insets top="10" right="20" bottom="10" left="20"/>
-            </padding>
-
-            <Label fx:id="readyStatusLabel" text="Waiting for fee agreement..." styleClass="status-text"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Fee Rate (sat/vB):"/>
+            <Slider fx:id="feeRateSlider" min="1" max="100" value="10" showTickLabels="true" showTickMarks="true" prefWidth="300"/>
+            <TextField fx:id="feeRateField" text="10" prefWidth="80"/>
+            <Label text="sat/vB"/>
         </HBox>
-    </bottom>
 
-</BorderPane>
+        <Label fx:id="feeEstimateLabel" text="Estimated fee: ~0.00000000 BTC" styleClass="estimate-label"/>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="proposeFeeButton" text="Propose Fee Rate" styleClass="primary-button" onAction="#proposeFee"/>
+            <Label fx:id="proposalStatusLabel" text="" styleClass="status-text"/>
+        </HBox>
+    </VBox>
+
+    <Separator/>
+
+    <!-- Agreed Fee Display -->
+    <VBox spacing="10" styleClass="agreed-fee-container">
+        <Label text="Agreed Fee Rate:" styleClass="section-label"/>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label fx:id="agreedFeeLabel" text="Not yet agreed" styleClass="agreed-fee-label"/>
+            <Label fx:id="agreedFeeExplanation" text="(waiting for all participants to propose)" styleClass="explanation-text"/>
+        </HBox>
+
+        <Label fx:id="statusLabel" text="" styleClass="status-text"/>
+    </VBox>
+
+    <Label fx:id="readyStatusLabel" text="Waiting for fee agreement..." styleClass="status-text"/>
+
+</VBox>

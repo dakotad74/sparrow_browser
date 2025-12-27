@@ -59,10 +59,6 @@ open module com.sparrowwallet.sparrow {
     requires com.sun.jna;
     requires io.github.doblon8.jzbar;
     // Nostr integration for P2P coordination
-    // COMMENTED: nostr-java modules not properly modularized
+    // NOTE: Not using nostr-java library - using native Java WebSocket implementation
     // requires nostr.java.api;
-    // requires nostr.java.base;
-    // requires nostr.java.client;
-    // requires nostr.java.event;
-    // requires nostr.java.crypto;
 }

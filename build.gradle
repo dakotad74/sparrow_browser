@@ -114,7 +114,9 @@ dependencies {
     implementation('io.github.doblon8:jzbar:0.2.1')
 
     // Nostr integration for P2P coordination
-    // TEMPORARILY COMMENTED: Module descriptor issues preventing GUI launch
+    // NOTE: Not using nostr-java library - using native Java WebSocket implementation instead
+    // The library has module descriptor issues that prevent GUI launch
+    // See NostrRelayManager.java for native implementation
     // implementation platform('xyz.tcheeric:nostr-java-bom:1.1.1')
     // implementation('xyz.tcheeric:nostr-java-api')
 

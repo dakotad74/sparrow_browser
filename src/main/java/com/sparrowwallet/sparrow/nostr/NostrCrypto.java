@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.sparrowwallet.drongo.crypto.ECDSASignature;
 import com.sparrowwallet.drongo.crypto.ECKey;
+import com.sparrowwallet.drongo.crypto.SchnorrSignature;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.SignatureDecodeException;
 import org.bitcoin.NativeSecp256k1;
@@ -74,15 +75,14 @@ public class NostrCrypto {
     }
 
     /**
-     * Sign an event with private key using ECDSA signature.
+     * Sign an event with private key using Schnorr signature (BIP-340).
      *
-     * Note: Nostr uses Schnorr signatures over secp256k1 (BIP-340).
-     * Since we're using Bitcoin's ECKey which uses ECDSA, we'll use
-     * ECDSA signatures for now. Full Schnorr support requires BIP-340 implementation.
+     * Nostr uses Schnorr signatures over secp256k1 as specified in BIP-340.
+     * Signatures are 64 bytes (32-byte r value + 32-byte s value).
      *
      * @param eventId Event ID to sign (32-byte hex string)
      * @param privateKey Private key for signing
-     * @return DER-encoded signature as hex string
+     * @return Schnorr signature as 64-byte hex string
      */
     public static String signEvent(String eventId, ECKey privateKey) {
         try {
@@ -90,14 +90,13 @@ public class NostrCrypto {
             byte[] eventIdBytes = hexToBytes(eventId);
             Sha256Hash hash = Sha256Hash.wrap(eventIdBytes);
 
-            // Sign with ECDSA (Bitcoin standard)
-            // Note: Nostr prefers Schnorr (BIP-340) but ECDSA works for compatibility
-            ECDSASignature signature = privateKey.signEcdsa(hash);
+            // Sign with Schnorr (Nostr standard, BIP-340)
+            SchnorrSignature signature = privateKey.signSchnorr(hash);
 
-            // Serialize signature to DER format and convert to hex
-            byte[] derSignature = signature.encodeToDER();
+            // Encode signature to 64 bytes (r || s)
+            byte[] signatureBytes = signature.encode();
 
-            return bytesToHex(derSignature);
+            return bytesToHex(signatureBytes);
 
         } catch(Exception e) {
             log.error("Failed to sign event", e);

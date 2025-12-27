@@ -4,6 +4,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.gson.Gson;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.address.Address;
+import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.EventManager;
 import com.sparrowwallet.sparrow.event.*;
@@ -57,6 +58,22 @@ public class CoordinationSessionManager extends Service<Void> {
         this.myNostrPubkey = pubkey;
     }
 
+    /**
+     * Get the user's Nostr public key
+     */
+    public String getMyNostrPubkey() {
+        return myNostrPubkey;
+    }
+
+    /**
+     * Check if a session was created locally (vs discovered remotely)
+     */
+    public boolean isLocalSession(String sessionId) {
+        // Local sessions have a wallet associated from creation
+        // Remote sessions don't have a wallet until we join
+        return sessionWallets.containsKey(sessionId);
+    }
+
     @Override
     protected Task<Void> createTask() {
         return new Task<>() {
@@ -89,7 +106,7 @@ public class CoordinationSessionManager extends Service<Void> {
         // Get network
         Network network = wallet.getNetwork();
 
-        log.info("Creating coordination session: {} for wallet: {} with {} expected participants",
+        log.error("=== Creating coordination session: {} for wallet: {} with {} expected participants ===",
                 sessionId, wallet.getName(), expectedParticipants);
 
         // Create session
@@ -104,13 +121,24 @@ public class CoordinationSessionManager extends Service<Void> {
         sessions.put(sessionId, session);
         sessionWallets.put(sessionId, wallet);
 
+        // Creator automatically joins as first participant
+        log.error("=== Creator auto-joining session as first participant ===");
+        CoordinationParticipant creator = new CoordinationParticipant(myNostrPubkey);
+        creator.setName(wallet.getName());
+        session.addParticipant(creator);
+        log.error("=== Creator added to session ===");
+
         // Fire event
         EventManager.get().post(new CoordinationSessionCreatedEvent(session));
 
-        log.info("Coordination session created: {}", sessionId);
+        log.error("=== Coordination session created: {}, about to publish to Nostr ===", sessionId);
 
         // Publish session-create event to Nostr
         publishSessionCreateEvent(session);
+
+        // Publish session-join event for creator
+        log.error("=== Publishing creator's session-join event ===");
+        publishSessionJoinEvent(sessionId, creator);
 
         return session;
     }
@@ -120,8 +148,24 @@ public class CoordinationSessionManager extends Service<Void> {
      */
     public void joinSession(String sessionId, Wallet wallet, String participantPubkey) {
         CoordinationSession session = sessions.get(sessionId);
+
+        // WORKAROUND: If session doesn't exist locally, create a stub session
+        // This allows joining sessions discovered via manual Session ID entry
+        // when Nostr event signing is not yet implemented
         if(session == null) {
-            throw new IllegalArgumentException("Session not found: " + sessionId);
+            log.warn("Session {} not found locally - creating stub session for join", sessionId);
+
+            // Create a minimal session stub
+            // We don't know the exact expected participant count, so use a reasonable default
+            session = new CoordinationSession(
+                sessionId,
+                wallet.getDefaultPolicy().getName(),
+                wallet.getNetwork(),
+                2  // Default to 2 participants - will be updated when we receive full session info
+            );
+
+            sessions.put(sessionId, session);
+            log.info("Created stub session: {}", sessionId);
         }
 
         if(session.isExpired()) {
@@ -140,10 +184,16 @@ public class CoordinationSessionManager extends Service<Void> {
         // Store wallet
         sessionWallets.put(sessionId, wallet);
 
-        // Fire event
+        // Store session in dialog for UI access
+        log.error("=== Posting CoordinationSessionCreatedEvent for session: {} ===", sessionId);
+        EventManager.get().post(new CoordinationSessionCreatedEvent(session));
+
+        // Fire participant joined event
+        log.error("=== Posting CoordinationParticipantJoinedEvent - Participant: {} joined session: {} ===",
+                  participant.getName(), sessionId);
         EventManager.get().post(new CoordinationParticipantJoinedEvent(sessionId, participant));
 
-        log.info("Participant joined session: {}", sessionId);
+        log.info("Participant {} joined session: {}", participant.getName(), sessionId);
 
         // Publish session-join event to Nostr
         publishSessionJoinEvent(sessionId, participant);
@@ -160,22 +210,36 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Proposing output for session {}: {} sats to {}", sessionId, amount, address);
 
-        // Create output
-        CoordinationOutput output = new CoordinationOutput(address, amount, label, participantPubkey);
+        // IMPORTANT: participantPubkey might be wallet pubkey, not Nostr pubkey
+        // If participant not found, assume it's the local user and use myNostrPubkey
+        CoordinationParticipant participant = session.getParticipant(participantPubkey);
+
+        String actualPubkey = participantPubkey;
+        if(participant == null) {
+            // Participant not found with this pubkey - likely a wallet pubkey
+            // Use myNostrPubkey for local user
+            actualPubkey = myNostrPubkey;
+            participant = session.getParticipant(actualPubkey);
+            log.error("=== Participant not found with pubkey {}, using myNostrPubkey: {} ===", participantPubkey, actualPubkey);
+        }
+
+        log.error("=== Creating local output with pubkey: {} ===", actualPubkey);
+
+        // Create output with pubkey (not name) - UI will get name from participant
+        CoordinationOutput output = new CoordinationOutput(address, amount, label, actualPubkey);
 
         // Add to session
         session.proposeOutput(output);
 
         // Add to participant
-        CoordinationParticipant participant = session.getParticipant(participantPubkey);
         if(participant != null) {
             participant.addProposedOutput(output);
         }
 
         log.info("Output proposed for session: {}", sessionId);
 
-        // Publish output-proposal event to Nostr
-        publishOutputProposalEvent(sessionId, output);
+        // Publish output-proposal event to Nostr (send actual Nostr pubkey for identification)
+        publishOutputProposalEvent(sessionId, output, actualPubkey);
     }
 
     /**
@@ -189,8 +253,23 @@ public class CoordinationSessionManager extends Service<Void> {
 
         log.info("Proposing fee for session {}: {} sat/vB by {}", sessionId, feeRate, participantPubkey);
 
-        // Create fee proposal
-        CoordinationFeeProposal feeProposal = new CoordinationFeeProposal(participantPubkey, feeRate);
+        // IMPORTANT: participantPubkey might be wallet pubkey, not Nostr pubkey
+        // If participant not found, assume it's the local user and use myNostrPubkey
+        CoordinationParticipant participant = session.getParticipant(participantPubkey);
+
+        String actualPubkey = participantPubkey;
+        if(participant == null) {
+            // Participant not found with this pubkey - likely a wallet pubkey
+            // Use myNostrPubkey for local user
+            actualPubkey = myNostrPubkey;
+            participant = session.getParticipant(actualPubkey);
+            log.error("=== Participant not found with pubkey {}, using myNostrPubkey: {} ===", participantPubkey, actualPubkey);
+        }
+
+        log.error("=== Creating local fee proposal with pubkey: {} ===", actualPubkey);
+
+        // Create fee proposal with pubkey (not name) so it can be associated with participant
+        CoordinationFeeProposal feeProposal = new CoordinationFeeProposal(actualPubkey, feeRate);
 
         // Add to session
         session.proposeFee(feeProposal);
@@ -211,6 +290,12 @@ public class CoordinationSessionManager extends Service<Void> {
 
                 // Publish fee-agreed event to Nostr
                 publishFeeAgreedEvent(sessionId, highestFee.get());
+
+                // Automatically finalize session when fee is agreed
+                if(session.isReadyToFinalize()) {
+                    log.info("Session is ready to finalize, auto-finalizing session: {}", sessionId);
+                    finalizeSession(sessionId);
+                }
             }
         }
     }
@@ -288,38 +373,58 @@ public class CoordinationSessionManager extends Service<Void> {
     }
 
     /**
+     * Handle incoming Nostr event from relay manager
+     */
+    public void handleNostrEvent(NostrEvent nostrEvent) {
+        processNostrEvent(nostrEvent);
+    }
+
+    /**
      * Handle Nostr message events
      */
     @Subscribe
     public void onNostrMessage(NostrMessageReceivedEvent event) {
         NostrEvent nostrEvent = event.getNostrEvent();
+        processNostrEvent(nostrEvent);
+    }
+
+    /**
+     * Process a Nostr event (common logic for both direct and event-based handling)
+     */
+    private void processNostrEvent(NostrEvent nostrEvent) {
 
         // Only process coordination events
         if(nostrEvent.getKind() != NostrEvent.KIND_COORDINATION) {
             return;
         }
 
-        log.debug("Received Nostr coordination message: {}", nostrEvent);
+        log.error("=== Processing Nostr coordination event, ID: {} ===", nostrEvent.getId());
+        log.error("=== Event tags: {} ===", nostrEvent.getTags());
 
         String messageType = nostrEvent.getTagValue("d");
+        log.error("=== Message type from tag 'd': {} ===", messageType);
+
         if(messageType == null) {
-            log.warn("Received coordination event without message type tag");
+            log.error("=== Received coordination event without message type tag ===");
             return;
         }
 
         // Ignore our own messages
-        if(myNostrPubkey.equals(nostrEvent.getPubkey())) {
+        if(myNostrPubkey != null && myNostrPubkey.equals(nostrEvent.getPubkey())) {
             log.debug("Ignoring own message: {}", messageType);
             return;
         }
 
         try {
             // Route to appropriate handler based on message type
+            log.error("=== Routing message type: {} ===", messageType);
             switch(messageType) {
                 case "session-create":
+                    log.error("=== Calling handleSessionCreateMessage ===");
                     handleSessionCreateMessage(nostrEvent);
                     break;
                 case "session-join":
+                    log.error("=== Calling handleSessionJoinMessage ===");
                     handleSessionJoinMessage(nostrEvent);
                     break;
                 case "output-proposal":
@@ -330,6 +435,9 @@ public class CoordinationSessionManager extends Service<Void> {
                     break;
                 case "fee-agreed":
                     handleFeeAgreedMessage(nostrEvent);
+                    break;
+                case "psbt-signed":
+                    handlePSBTSignedMessage(nostrEvent);
                     break;
                 case "session-finalize":
                     handleSessionFinalizeMessage(nostrEvent);
@@ -403,37 +511,51 @@ public class CoordinationSessionManager extends Service<Void> {
      * Handle incoming session-join messages
      */
     private void handleSessionJoinMessage(NostrEvent event) {
+        log.error("=== handleSessionJoinMessage() called ===");
         String sessionId = event.getTagValue("session-id");
         String participantPubkey = event.getTagValue("participant-pubkey");
 
+        log.error("=== Session ID: {}, Participant pubkey: {} ===", sessionId, participantPubkey);
+
         if(sessionId == null || participantPubkey == null) {
-            log.warn("session-join message missing required tags");
+            log.error("=== session-join message missing required tags ===");
             return;
         }
 
         CoordinationSession session = sessions.get(sessionId);
+        log.error("=== Session found: {} ===", session != null);
         if(session == null) {
-            log.debug("Received join for unknown session: {}", sessionId);
+            log.error("=== Received join for unknown session: {} ===", sessionId);
             return;
         }
 
         try {
+            log.error("=== Parsing event content ===");
             @SuppressWarnings("unchecked")
             Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
 
             String name = (String) content.get("name");
             String xpub = (String) content.get("xpub");
+            log.error("=== Participant name: {}, xpub: {} ===", name, xpub != null ? xpub.substring(0, 20) + "..." : "null");
 
             CoordinationParticipant participant = new CoordinationParticipant(participantPubkey, name, xpub);
+            log.error("=== Participant object created ===");
 
             // Add participant if not already in session
-            if(session.getParticipant(participantPubkey) == null) {
+            CoordinationParticipant existing = session.getParticipant(participantPubkey);
+            log.error("=== Existing participant: {} ===", existing != null);
+
+            if(existing == null) {
+                log.error("=== Adding participant to session ===");
                 session.addParticipant(participant);
 
                 // Fire event
+                log.error("=== Firing CoordinationParticipantJoinedEvent ===");
                 EventManager.get().post(new CoordinationParticipantJoinedEvent(sessionId, participant));
 
-                log.info("Participant {} joined session {}", participantPubkey.substring(0, 8), sessionId);
+                log.error("=== Participant {} joined session {} ===", participantPubkey.substring(0, 8), sessionId);
+            } else {
+                log.error("=== Participant already in session, skipping ===");
             }
 
         } catch(Exception e) {
@@ -475,7 +597,12 @@ public class CoordinationSessionManager extends Service<Void> {
             Address address = Address.fromString(addressStr);
             long amount = amountNum.longValue();
 
+            log.error("=== Creating output with pubkey: {} ===", proposedBy);
+
+            // Create output with pubkey (not name) - UI will get name from participant
             CoordinationOutput output = new CoordinationOutput(address, amount, label, proposedBy);
+
+            CoordinationParticipant participant = session.getParticipant(proposedBy);
 
             // Check for duplicate before adding
             boolean duplicate = session.getOutputs().stream()
@@ -485,10 +612,12 @@ public class CoordinationSessionManager extends Service<Void> {
                 session.proposeOutput(output);
 
                 // Add to participant's outputs
-                CoordinationParticipant participant = session.getParticipant(proposedBy);
                 if(participant != null) {
                     participant.addProposedOutput(output);
                 }
+
+                // Fire event to update UI
+                EventManager.get().post(new CoordinationOutputProposedEvent(session, output));
 
                 log.info("Output proposed for session {}: {} sats to {}",
                         sessionId, amount, addressStr);
@@ -506,6 +635,8 @@ public class CoordinationSessionManager extends Service<Void> {
         String sessionId = event.getTagValue("session-id");
         String feeRateStr = event.getTagValue("fee-rate");
 
+        log.error("=== handleFeeProposalMessage called: sessionId={}, feeRate={} ===", sessionId, feeRateStr);
+
         if(sessionId == null || feeRateStr == null) {
             log.warn("fee-proposal message missing required tags");
             return;
@@ -518,21 +649,32 @@ public class CoordinationSessionManager extends Service<Void> {
         }
 
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> content = gson.fromJson(event.getContent(), Map.class);
+            String content = event.getContent();
+            log.error("=== Fee proposal content: {} ===", content);
 
-            String proposedBy = (String) content.get("proposed_by");
-            Number feeRateNum = (Number) content.get("fee_rate");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> contentMap = gson.fromJson(content, Map.class);
+
+            String proposedBy = (String) contentMap.get("proposed_by");
+            Number feeRateNum = (Number) contentMap.get("fee_rate");
+
+            log.error("=== Parsed: proposedBy={}, feeRateNum={} ===", proposedBy, feeRateNum);
 
             if(proposedBy == null || feeRateNum == null) {
-                log.warn("fee-proposal message missing required fields");
+                log.warn("fee-proposal message missing required fields: proposed_by={}, fee_rate={}", proposedBy, feeRateNum);
                 return;
             }
 
             double feeRate = feeRateNum.doubleValue();
 
+            log.error("=== Creating fee proposal with pubkey: {} ===", proposedBy);
+
+            // Create fee proposal with pubkey (not name) so it can be associated with participant
             CoordinationFeeProposal feeProposal = new CoordinationFeeProposal(proposedBy, feeRate);
             session.proposeFee(feeProposal);
+
+            // Fire event to update UI
+            EventManager.get().post(new CoordinationFeeProposedEvent(session, feeProposal));
 
             log.info("Fee proposed for session {}: {} sat/vB by {}",
                     sessionId, feeRate, proposedBy.substring(0, 8));
@@ -585,6 +727,65 @@ public class CoordinationSessionManager extends Service<Void> {
     }
 
     /**
+     * Handle incoming psbt-signed messages from participants
+     */
+    private void handlePSBTSignedMessage(NostrEvent event) {
+        String sessionId = event.getTagValue("session-id");
+
+        if(sessionId == null) {
+            log.warn("psbt-signed message missing session-id tag");
+            return;
+        }
+
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.debug("Received PSBT signature for unknown session: {}", sessionId);
+            return;
+        }
+
+        try {
+            String content = event.getContent();
+            log.info("=== Received PSBT signature for session: {} ===", sessionId);
+            log.debug("PSBT content length: {}", content != null ? content.length() : 0);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> contentMap = gson.fromJson(content, Map.class);
+
+            String signedBy = (String) contentMap.get("signed_by");
+            String psbtBase64 = (String) contentMap.get("psbt");
+
+            if(signedBy == null || psbtBase64 == null) {
+                log.warn("psbt-signed message missing required fields: signed_by={}, psbt={}",
+                    signedBy, psbtBase64 != null ? "present" : "null");
+                return;
+            }
+
+            log.info("PSBT signed by participant: {}", signedBy);
+
+            // Parse PSBT from base64
+            PSBT psbt = PSBT.fromString(psbtBase64);
+
+            // Store PSBT in participant
+            CoordinationParticipant participant = session.getParticipant(signedBy);
+            if(participant != null) {
+                participant.setSignedPSBT(psbt);
+                log.info("Stored signed PSBT from participant: {}", participant.getName());
+
+                // Fire event to update UI
+                EventManager.get().post(new CoordinationPSBTSignedEvent(session, participant, psbt));
+
+                // Check if all participants have signed
+                checkAndCombinePSBTs(session);
+            } else {
+                log.warn("Participant not found for pubkey: {}", signedBy);
+            }
+
+        } catch(Exception e) {
+            log.error("Error handling psbt-signed message", e);
+        }
+    }
+
+    /**
      * Handle incoming session-finalize messages
      */
     private void handleSessionFinalizeMessage(NostrEvent event) {
@@ -628,12 +829,18 @@ public class CoordinationSessionManager extends Service<Void> {
      * Publish session-create event to Nostr
      */
     private void publishSessionCreateEvent(CoordinationSession session) {
+        log.error("=== publishSessionCreateEvent() called for session: {} ===", session.getSessionId());
+        log.error("=== nostrRelayManager: {}, isConnected: {} ===",
+                  nostrRelayManager != null ? "available" : "null",
+                  nostrRelayManager != null ? nostrRelayManager.isConnected() : false);
+
         if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
-            log.warn("Cannot publish session-create event - Nostr not connected");
+            log.error("=== Cannot publish session-create event - Nostr not connected ===");
             return;
         }
 
         try {
+            log.error("=== Creating Nostr event with pubkey: {} ===", myNostrPubkey);
             NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
 
             // Add tags
@@ -648,8 +855,9 @@ public class CoordinationSessionManager extends Service<Void> {
             content.put("created_at", session.getCreatedAt().toString());
             event.setContent(gson.toJson(content));
 
+            log.error("=== About to publish event to Nostr relays ===");
             nostrRelayManager.publishEvent(event);
-            log.info("Published session-create event for session: {}", session.getSessionId());
+            log.error("=== Published session-create event for session: {} ===", session.getSessionId());
 
         } catch(Exception e) {
             log.error("Failed to publish session-create event", e);
@@ -688,7 +896,7 @@ public class CoordinationSessionManager extends Service<Void> {
     /**
      * Publish output-proposal event to Nostr
      */
-    private void publishOutputProposalEvent(String sessionId, CoordinationOutput output) {
+    private void publishOutputProposalEvent(String sessionId, CoordinationOutput output, String participantPubkey) {
         if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
             log.warn("Cannot publish output-proposal event - Nostr not connected");
             return;
@@ -704,7 +912,7 @@ public class CoordinationSessionManager extends Service<Void> {
             content.put("address", output.getAddress().toString());
             content.put("amount", output.getAmount());
             content.put("label", output.getLabel());
-            content.put("proposed_by", output.getProposedBy());
+            content.put("proposed_by", participantPubkey); // Send pubkey for identification
             event.setContent(gson.toJson(content));
 
             nostrRelayManager.publishEvent(event);
@@ -732,7 +940,7 @@ public class CoordinationSessionManager extends Service<Void> {
             event.addTag("fee-rate", String.valueOf(feeProposal.getFeeRate()));
 
             Map<String, Object> content = new HashMap<>();
-            content.put("proposed_by", feeProposal.getProposedBy());
+            content.put("proposed_by", feeProposal.getProposedBy()); // Already contains pubkey
             content.put("fee_rate", feeProposal.getFeeRate());
             event.setContent(gson.toJson(content));
 
@@ -799,6 +1007,119 @@ public class CoordinationSessionManager extends Service<Void> {
 
         } catch(Exception e) {
             log.error("Failed to publish session-finalize event", e);
+        }
+    }
+
+    /**
+     * Check if all participants have signed and combine PSBTs if ready
+     */
+    private void checkAndCombinePSBTs(CoordinationSession session) {
+        log.info("Checking if all participants have signed for session: {}", session.getSessionId());
+
+        // Check if all participants have signed
+        boolean allSigned = true;
+        for(CoordinationParticipant participant : session.getParticipants()) {
+            if(!participant.hasSigned()) {
+                log.info("Participant {} has not signed yet", participant.getName());
+                allSigned = false;
+            } else {
+                log.info("Participant {} has signed", participant.getName());
+            }
+        }
+
+        if(!allSigned) {
+            log.info("Not all participants have signed yet, waiting...");
+            return;
+        }
+
+        log.info("All participants have signed! Combining PSBTs...");
+
+        try {
+            // Collect all signed PSBTs
+            List<PSBT> psbtList = new ArrayList<>();
+            for(CoordinationParticipant participant : session.getParticipants()) {
+                PSBT psbt = participant.getSignedPSBT();
+                if(psbt != null) {
+                    psbtList.add(psbt);
+                    log.info("Added PSBT from participant: {}", participant.getName());
+                }
+            }
+
+            if(psbtList.isEmpty()) {
+                log.error("No PSBTs to combine!");
+                return;
+            }
+
+            // Combine all PSBTs
+            PSBT combinedPSBT = psbtList.get(0);
+            for(int i = 1; i < psbtList.size(); i++) {
+                log.info("Combining PSBT {} of {}", i + 1, psbtList.size());
+                combinedPSBT.combine(psbtList.get(i));
+            }
+
+            log.info("PSBTs combined successfully!");
+            log.info("Combined PSBT has {} inputs and {} outputs",
+                combinedPSBT.getPsbtInputs().size(),
+                combinedPSBT.getPsbtOutputs().size());
+
+            // Fire event with combined PSBT
+            EventManager.get().post(new CoordinationPSBTCombinedEvent(session, combinedPSBT));
+
+            // TODO: Finalize and extract transaction
+            // TODO: Broadcast transaction
+
+        } catch(Exception e) {
+            log.error("Error combining PSBTs", e);
+        }
+    }
+
+    /**
+     * Publish signed PSBT to Nostr
+     */
+    public void publishSignedPSBT(String sessionId, PSBT signedPSBT) {
+        CoordinationSession session = sessions.get(sessionId);
+        if(session == null) {
+            log.error("Session not found: {}", sessionId);
+            return;
+        }
+
+        if(nostrRelayManager == null || !nostrRelayManager.isConnected()) {
+            log.warn("Cannot publish signed PSBT - Nostr not connected");
+            return;
+        }
+
+        try {
+            NostrEvent event = new NostrEvent(myNostrPubkey, NostrEvent.KIND_COORDINATION, "");
+
+            event.addTag("d", "psbt-signed");
+            event.addTag("session-id", sessionId);
+
+            // Serialize PSBT to base64
+            String psbtBase64 = signedPSBT.toBase64String();
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("signed_by", myNostrPubkey);
+            content.put("psbt", psbtBase64);
+            event.setContent(gson.toJson(content));
+
+            nostrRelayManager.publishEvent(event);
+            log.info("Published signed PSBT for session: {}", sessionId);
+
+            // Store our own signed PSBT locally
+            CoordinationParticipant myParticipant = session.getParticipant(myNostrPubkey);
+            if(myParticipant != null) {
+                myParticipant.setSignedPSBT(signedPSBT);
+                log.info("Stored our signed PSBT locally");
+
+                // Fire event to update UI
+                EventManager.get().post(new CoordinationPSBTSignedEvent(session, myParticipant, signedPSBT));
+
+                // Check if we can combine now
+                checkAndCombinePSBTs(session);
+            }
+
+        } catch(Exception e) {
+            log.error("Failed to publish signed PSBT", e);
         }
     }
 
