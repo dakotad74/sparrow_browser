@@ -152,18 +152,18 @@ public class NostrCrypto {
      * - Base64 encoding of result
      *
      * @param plaintext Content to encrypt
-     * @param recipientPubkey Recipient's public key (33-byte compressed hex)
+     * @param recipientPubkey Recipient's public key (32-byte Nostr hex format - x-coordinate only)
      * @param senderPrivkey Sender's private key
-     * @return Base64 encoded: ciphertext?iv
+     * @return Base64 encoded: ciphertext?iv=ivBase64
      */
     public static String encrypt(String plaintext, String recipientPubkey, ECKey senderPrivkey) {
         try {
-            // Derive shared secret via ECDH using libsecp256k1
-            byte[] recipientPubkeyBytes = hexToBytes(recipientPubkey);
+            // Convert Nostr pubkey (32 bytes x-coordinate) to compressed secp256k1 format (33 bytes)
+            byte[] recipientPubkeyCompressed = nostrPubkeyToCompressed(recipientPubkey);
             byte[] senderPrivkeyBytes = senderPrivkey.getPrivKeyBytes();
 
             // ECDH: multiply recipient's public key by our private key
-            byte[] sharedSecret = NativeSecp256k1.createECDHSecret(senderPrivkeyBytes, recipientPubkeyBytes);
+            byte[] sharedSecret = NativeSecp256k1.createECDHSecret(senderPrivkeyBytes, recipientPubkeyCompressed);
 
             // Use first 32 bytes as AES-256 key
             byte[] aesKey = MessageDigest.getInstance("SHA-256").digest(sharedSecret);
@@ -192,8 +192,8 @@ public class NostrCrypto {
     /**
      * Decrypt content using NIP-04 encryption.
      *
-     * @param encryptedContent Base64 encoded ciphertext?iv
-     * @param senderPubkey Sender's public key (33-byte compressed hex)
+     * @param encryptedContent Base64 encoded ciphertext?iv=ivBase64
+     * @param senderPubkey Sender's public key (32-byte Nostr hex format - x-coordinate only)
      * @param recipientPrivkey Recipient's private key
      * @return Decrypted plaintext
      */
@@ -208,12 +208,12 @@ public class NostrCrypto {
             byte[] ciphertext = Base64.getDecoder().decode(parts[0]);
             byte[] iv = Base64.getDecoder().decode(parts[1]);
 
-            // Derive shared secret via ECDH using libsecp256k1
-            byte[] senderPubkeyBytes = hexToBytes(senderPubkey);
+            // Convert Nostr pubkey (32 bytes x-coordinate) to compressed secp256k1 format (33 bytes)
+            byte[] senderPubkeyCompressed = nostrPubkeyToCompressed(senderPubkey);
             byte[] recipientPrivkeyBytes = recipientPrivkey.getPrivKeyBytes();
 
             // ECDH: multiply sender's public key by our private key
-            byte[] sharedSecret = NativeSecp256k1.createECDHSecret(recipientPrivkeyBytes, senderPubkeyBytes);
+            byte[] sharedSecret = NativeSecp256k1.createECDHSecret(recipientPrivkeyBytes, senderPubkeyCompressed);
 
             // Use first 32 bytes as AES-256 key
             byte[] aesKey = MessageDigest.getInstance("SHA-256").digest(sharedSecret);
@@ -360,6 +360,56 @@ public class NostrCrypto {
                 }
             }
             return chk;
+        }
+    }
+
+    /**
+     * Convert Nostr public key (32-byte x-coordinate) to compressed secp256k1 format (33 bytes).
+     *
+     * Nostr uses only the x-coordinate of the public key (32 bytes).
+     * For ECDH, we need the full compressed public key (33 bytes with 02/03 prefix).
+     *
+     * Since we only have the x-coordinate, we need to reconstruct the point.
+     * We try prefix 02 (even y) first, and if that doesn't work, try 03 (odd y).
+     *
+     * @param nostrPubkeyHex 32-byte public key (x-coordinate only) as hex
+     * @return 33-byte compressed public key
+     */
+    private static byte[] nostrPubkeyToCompressed(String nostrPubkeyHex) {
+        try {
+            byte[] xCoord = hexToBytes(nostrPubkeyHex);
+
+            if (xCoord.length != 32) {
+                throw new IllegalArgumentException("Nostr pubkey must be 32 bytes, got: " + xCoord.length);
+            }
+
+            // Try even y-coordinate first (prefix 02)
+            byte[] compressedEven = new byte[33];
+            compressedEven[0] = 0x02;
+            System.arraycopy(xCoord, 0, compressedEven, 1, 32);
+
+            try {
+                // Attempt to parse as valid secp256k1 point
+                ECKey.fromPublicOnly(compressedEven);
+                return compressedEven;
+            } catch (Exception e) {
+                // Even y didn't work, try odd y (prefix 03)
+                byte[] compressedOdd = new byte[33];
+                compressedOdd[0] = 0x03;
+                System.arraycopy(xCoord, 0, compressedOdd, 1, 32);
+
+                try {
+                    // Verify this is valid
+                    ECKey.fromPublicOnly(compressedOdd);
+                    return compressedOdd;
+                } catch (Exception e2) {
+                    throw new IllegalArgumentException("Invalid Nostr public key - cannot reconstruct point", e2);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to convert Nostr pubkey to compressed format", e);
+            throw new RuntimeException("Failed to convert Nostr pubkey", e);
         }
     }
 

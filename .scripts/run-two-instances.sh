@@ -29,11 +29,17 @@ echo "   DISPLAY: $DISPLAY"
 echo "   XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
 echo ""
 
-# Cambiar al directorio del script
+# Determinar directorio del proyecto (sparrow)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
+# Si el script está en .scripts/, el proyecto está en el padre
+if [[ "$SCRIPT_DIR" == *"/.scripts"* ]]; then
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+else
+    PROJECT_DIR="$SCRIPT_DIR"
+fi
+cd "$PROJECT_DIR"
 
-# Verificar que el binario existe (KEY DIFFERENCE from previous attempt)
+# Verificar que el binario exists (KEY DIFFERENCE from previous attempt)
 BINARY="./build/jpackage/Sparrow/bin/Sparrow"
 
 if [ ! -f "$BINARY" ]; then

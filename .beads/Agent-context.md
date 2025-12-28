@@ -62,9 +62,24 @@ SparrowDev/
    ```
    ⚠️ **NUNCA usar solo `compileJava`** - Los cambios no se reflejan en las instancias debido al empaquetado.
 
-2. **Reducir sleeps a la mitad:**
-   - Usar `sleep 8` en lugar de `sleep 15`
-   - Usar `sleep 15` en lugar de `sleep 30`
+2. **Sleeps optimizados (reducidos 75%):**
+   - Usar `sleep 4` en lugar de `sleep 15`
+   - Usar `sleep 8` en lugar de `sleep 30`
+   - El sistema arranca más rápido de lo que pensábamos inicialmente
+
+3. **Script fix para .scripts/ directory:**
+   - Los scripts en `.scripts/` deben detectar el directorio del proyecto
+   - Usar este patrón en todos los scripts:
+   ```bash
+   SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+   if [[ "$SCRIPT_DIR" == *"/.scripts"* ]]; then
+       PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+   else
+       PROJECT_DIR="$SCRIPT_DIR"
+   fi
+   cd "$PROJECT_DIR"
+   ```
+   - Esto permite que `./gradlew` funcione correctamente desde `.scripts/`
 
 ### Scripts de Testing
 
@@ -72,9 +87,14 @@ SparrowDev/
 - Lanza Alice (directorio `~/.sparrow`) y Bob (directorio `~/.sparrow-bob`)
 - Ambas en testnet4
 - Logs en `/tmp/sparrow-alice.log` y `/tmp/sparrow-bob.log`
+- **Fix aplicado:** Detecta correctamente PROJECT_DIR desde `.scripts/`
 
-**Uso rápido desde la raíz:**
+**Uso desde cualquier lugar:**
 ```bash
+# Desde sparrow/:
+./.scripts/run-two-instances.sh
+
+# O usando el wrapper (si está en sparrow/):
 ./run-instances.sh
 ```
 
@@ -189,6 +209,23 @@ if (activeIdentity != null && offer.getCreatorHex().equals(activeIdentity.getHex
 ### 5. **Persistencia Missing** ✅
 **Problema:** Identidades y ofertas se perdían al reiniciar
 **Solución:** Sistema completo de persistencia JSON con GSON
+
+### 6. **Chat Encryption Error (NIP-04)** ✅
+**Problema:** `NativeSecp256k1Util$AssertFailException` al cifrar mensajes
+**Causa raíz:**
+- Nostr usa claves públicas de 32 bytes (solo coordenada x)
+- `NativeSecp256k1.createECDHSecret()` requiere claves comprimidas de 33 bytes (prefijo 02/03)
+
+**Solución:** Añadido método `nostrPubkeyToCompressed()` en NostrCrypto.java:
+- Reconstruye la clave pública completa desde la coordenada x
+- Prueba prefijo 02 (y par) primero
+- Si falla, prueba prefijo 03 (y impar)
+- Valida que el punto sea válido en secp256k1
+
+**Archivos modificados:**
+- `NostrCrypto.java:162` - `encrypt()` usa `nostrPubkeyToCompressed()`
+- `NostrCrypto.java:212` - `decrypt()` usa `nostrPubkeyToCompressed()`
+- `NostrCrypto.java:378-414` - Nuevo método helper
 
 ---
 
@@ -402,6 +439,8 @@ ps aux | grep Sparrow
 3. **Identity matters** - Verificar creatorHex evita duplicación de ofertas propias
 4. **Persistence is key** - Los usuarios esperan que sus datos persistan
 5. **Observer pattern** - Desacopla UI de lógica de negocio eficientemente
+6. **Nostr key formats** - 32 bytes (x-only) vs 33 bytes (compressed) importa para ECDH
+7. **Scripts en subdirectorios** - Deben detectar PROJECT_DIR correctamente para ejecutar gradlew
 
 ---
 
@@ -417,14 +456,13 @@ ps aux | grep Sparrow
 - Persistencia de ofertas propias
 - UI responsiva con auto-refresh
 - "Manage My Offers" funcional
-
-⚠️ **Con Issues:**
-- Chat encryption (error NIP-04)
+- **Chat cifrado NIP-04** (problema de ECDH resuelto)
 
 📋 **Pendiente:**
 - Re-publicación de ofertas al reiniciar
 - Sistema de reputación
 - Filtros de búsqueda avanzados
+- Testing completo del chat entre Alice y Bob
 
 ---
 
