@@ -66,6 +66,32 @@ public class NostrIdentity {
         }
     }
 
+    /**
+     * Reconstruct identity from persisted data (used for deserialization)
+     */
+    public NostrIdentity(String id, String npub, String nsec, String hex, String displayName,
+                        IdentityType type, LocalDateTime createdAt, LocalDateTime lastUsedAt,
+                        LocalDateTime expiresAt, boolean isActive) {
+        this.id = id;
+        this.nsec = nsec;
+        this.npub = npub;
+        this.hex = hex;
+        this.displayName = displayName;
+        this.type = type;
+        this.createdAt = createdAt;
+        this.lastUsedAt = lastUsedAt;
+        this.expiresAt = expiresAt;
+        this.status = isActive ? IdentityStatus.ACTIVE : IdentityStatus.DELETED;
+        this.autoDelete = (type == IdentityType.EPHEMERAL);
+        this.reviewIds = new ArrayList<>();
+
+        // Initialize reputation for persistent identities
+        if (type == IdentityType.PERSISTENT) {
+            this.completedTrades = 0;
+            this.averageRating = 0.0;
+        }
+    }
+
     // Getters and setters
 
     public String getId() {

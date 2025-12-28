@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.trade.OfferDetailsController"
+            prefWidth="700" prefHeight="750">
+
+    <!-- Title Bar -->
+    <top>
+        <VBox>
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+                <Label text="Trade Offer Details"/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <!-- Main Content -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true">
+            <VBox spacing="20">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+
+                <!-- Offer Type and Amount -->
+                <VBox spacing="10">
+                    <Label text="Offer"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Type:" minWidth="120"/>
+                        <Label fx:id="offerTypeLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Amount:" minWidth="120"/>
+                        <Label fx:id="amountLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+                <!-- Price -->
+                <VBox spacing="10">
+                    <Label text="Price"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Price:" minWidth="120"/>
+                        <Label fx:id="priceLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Premium/Discount:" minWidth="120"/>
+                        <Label fx:id="effectivePriceLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+                <!-- Trading Limits -->
+                <VBox spacing="10">
+                    <Label text="Trading Limits"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Minimum Trade:" minWidth="120"/>
+                        <Label fx:id="minTradeLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Maximum Trade:" minWidth="120"/>
+                        <Label fx:id="maxTradeLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+                <!-- Payment and Location -->
+                <VBox spacing="10">
+                    <Label text="Payment and Location"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Payment Method:" minWidth="120"/>
+                        <Label fx:id="paymentMethodLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Location:" minWidth="120"/>
+                        <Label fx:id="locationLabel" text=""/>
+                    </HBox>
+                    <VBox spacing="5" fx:id="locationDetailBox">
+                        <Label text="Location Details:"/>
+                        <TextArea fx:id="locationDetailArea" editable="false" wrapText="true" prefRowCount="2"/>
+                    </VBox>
+                </VBox>
+
+                <!-- Terms and Conditions -->
+                <VBox spacing="10">
+                    <Label text="Terms and Conditions"/>
+                    <Separator/>
+                    <VBox spacing="5">
+                        <Label text="Description:"/>
+                        <TextArea fx:id="descriptionArea" editable="false" wrapText="true" prefRowCount="3"/>
+                    </VBox>
+                    <VBox spacing="5" fx:id="termsBox">
+                        <Label text="Trading Terms:"/>
+                        <TextArea fx:id="termsArea" editable="false" wrapText="true" prefRowCount="3"/>
+                    </VBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Escrow Window:" minWidth="120"/>
+                        <Label fx:id="escrowTimeLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+                <!-- Creator Info -->
+                <VBox spacing="10">
+                    <Label text="Seller Information"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Name:" minWidth="120"/>
+                        <Label fx:id="creatorNameLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Npub:" minWidth="120"/>
+                        <Label fx:id="creatorNpubLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Reputation:" minWidth="120"/>
+                        <Label fx:id="creatorReputationLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+                <!-- Metadata -->
+                <VBox spacing="10">
+                    <Label text="Offer Metadata"/>
+                    <Separator/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Published:" minWidth="120"/>
+                        <Label fx:id="publishedLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Status:" minWidth="120"/>
+                        <Label fx:id="statusLabel" text=""/>
+                    </HBox>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Statistics:" minWidth="120"/>
+                        <Label fx:id="viewsLabel" text=""/>
+                    </HBox>
+                </VBox>
+
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <!-- Bottom Buttons -->
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <padding>
+                <Insets top="15" right="20" bottom="15" left="20"/>
+            </padding>
+            <Button fx:id="contactButton" text="Contact Seller"/>
+            <Button fx:id="closeButton" text="Close"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.chat.ChatDialogController"
+            prefWidth="600" prefHeight="700">
+
+    <!-- Header -->
+    <top>
+        <VBox>
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+
+                <VBox spacing="3" HBox.hgrow="ALWAYS">
+                    <Label fx:id="peerNameLabel" text="Peer Name"/>
+                    <Label fx:id="peerNpubLabel" text="npub1..."/>
+                </VBox>
+
+                <Label fx:id="connectionStatusLabel" text="Connecting..."/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <!-- Messages Area -->
+    <center>
+        <VBox>
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+
+            <ListView fx:id="messagesListView" VBox.vgrow="ALWAYS">
+                <padding>
+                    <Insets top="5" right="5" bottom="5" left="5"/>
+                </padding>
+            </ListView>
+        </VBox>
+    </center>
+
+    <!-- Input Area -->
+    <bottom>
+        <VBox>
+            <Separator/>
+
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+
+                <Label text="Type your message (Shift+Enter for new line):"/>
+
+                <TextArea fx:id="messageInputArea"
+                          promptText="Type your encrypted message here..."
+                          wrapText="true"
+                          prefRowCount="3"/>
+
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Label text="All messages are encrypted with NIP-04"/>
+
+                    <Region HBox.hgrow="ALWAYS"/>
+
+                    <Button fx:id="sendButton"
+                            text="Send Message"
+                            defaultButton="true"
+                            disable="true"
+                            prefWidth="120"/>
+
+                    <Button fx:id="closeButton"
+                            text="Close"
+                            cancelButton="true"
+                            prefWidth="80"/>
+                </HBox>
+            </VBox>
+        </VBox>
+    </bottom>
+
+</BorderPane>

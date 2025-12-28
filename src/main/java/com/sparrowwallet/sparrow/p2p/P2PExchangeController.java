@@ -1,8 +1,11 @@
 package com.sparrowwallet.sparrow.p2p;
 
 import com.sparrowwallet.sparrow.EventManager;
+import com.sparrowwallet.sparrow.p2p.NostrP2PService;
 import com.sparrowwallet.sparrow.p2p.identity.NostrIdentity;
 import com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager;
+import com.sparrowwallet.sparrow.p2p.trade.TradeOffer;
+import com.sparrowwallet.sparrow.p2p.trade.TradeOfferManager;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -12,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
+import java.util.List;
 import java.util.ResourceBundle;
 
 /**
@@ -72,7 +76,7 @@ public class P2PExchangeController implements Initializable {
     private ComboBox<String> amountFilterCombo;
 
     @FXML
-    private ListView<String> offersListView;
+    private ListView<TradeOffer> offersListView;
 
     // My Activity section
     @FXML
@@ -93,18 +97,25 @@ public class P2PExchangeController implements Initializable {
     @FXML
     private Button createOfferActivityButton;
 
+    @FXML
+    private Button manageOffersButton;
+
     // Status bar
     @FXML
     private Label statusLabel;
 
     private NostrIdentityManager identityManager;
+    private TradeOfferManager offerManager;
+    private NostrP2PService nostrP2PService;
     private NostrIdentity currentIdentity;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        log.info("Initializing P2P Exchange controller");
+        log.error("=== P2P EXCHANGE CONTROLLER INITIALIZING ===");
 
         identityManager = NostrIdentityManager.getInstance();
+        offerManager = TradeOfferManager.getInstance();
+        nostrP2PService = NostrP2PService.getInstance();
 
         // Initialize identity
         initializeIdentity();
@@ -118,7 +129,41 @@ public class P2PExchangeController implements Initializable {
         // Initialize activity section
         initializeActivity();
 
+        // Start Nostr P2P service
+        initializeNostrService();
+
         updateStatusBar();
+    }
+
+    /**
+     * Initialize Nostr P2P service
+     */
+    private void initializeNostrService() {
+        log.error("=== STARTING NOSTR P2P SERVICE ===");
+
+        // Start service in background
+        new Thread(() -> {
+            try {
+                nostrP2PService.start();
+
+                // Wait a bit for connections
+                Thread.sleep(2000);
+
+                // Subscribe to offers
+                nostrP2PService.subscribeToOffers();
+
+                // Update status on JavaFX thread
+                Platform.runLater(this::updateStatusBar);
+
+                log.info("Nostr P2P service started successfully");
+
+            } catch (Exception e) {
+                log.error("Failed to start Nostr P2P service", e);
+                Platform.runLater(() -> {
+                    statusLabel.setText("Failed to connect to Nostr relays");
+                });
+            }
+        }, "NostrP2PInit").start();
     }
 
     /**
@@ -242,8 +287,24 @@ public class P2PExchangeController implements Initializable {
         createOfferButton.setOnAction(e -> createOffer());
         refreshButton.setOnAction(e -> refreshOffers());
 
-        // TODO: Load offers from Nostr
-        offersListView.getItems().add("No offers available. Create one to get started!");
+        // Setup custom cell factory for offers
+        offersListView.setCellFactory(lv -> new OfferListCell());
+
+        // Setup click handler to view offer details
+        offersListView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) { // Double-click
+                TradeOffer selectedOffer = offersListView.getSelectionModel().getSelectedItem();
+                if (selectedOffer != null) {
+                    viewOfferDetails(selectedOffer);
+                }
+            }
+        });
+
+        // Register listener for automatic UI updates when offers arrive
+        offerManager.addOfferUpdateListener(this::refreshOffers);
+
+        // Load initial offers
+        refreshOffers();
 
         log.info("Marketplace initialized");
     }
@@ -257,6 +318,7 @@ public class P2PExchangeController implements Initializable {
         openOffersLabel.setText("Open Offers: 0");
 
         createOfferActivityButton.setOnAction(e -> createOffer());
+        manageOffersButton.setOnAction(e -> manageOffers());
 
         // Add initial activity
         activityListView.getItems().add("• Identity created (" + formatTimeAgo(currentIdentity.getCreatedAt()) + ")");
@@ -270,8 +332,20 @@ public class P2PExchangeController implements Initializable {
      * Update status bar
      */
     private void updateStatusBar() {
-        // TODO: Get actual relay connection status
-        statusLabel.setText("Connected to 3 Nostr relays  •  0 offers available");
+        // Get relay connection status
+        int connectedRelays = nostrP2PService.getConnectedRelayCount();
+        int offerCount = offerManager.getAllOffers().size();
+
+        String status;
+        if (connectedRelays == 0) {
+            status = "Connecting to Nostr relays...";
+        } else {
+            status = "Connected to " + connectedRelays + " Nostr relay" +
+                    (connectedRelays == 1 ? "" : "s") + "  •  " +
+                    offerCount + " offer" + (offerCount == 1 ? "" : "s") + " available";
+        }
+
+        statusLabel.setText(status);
     }
 
     /**
@@ -285,29 +359,86 @@ public class P2PExchangeController implements Initializable {
             paymentFilterCombo.getValue(),
             amountFilterCombo.getValue());
 
-        // TODO: Filter offers based on selected criteria
-        refreshOffers();
+        Platform.runLater(() -> {
+            // Get filter values
+            String typeFilter = typeFilterCombo.getValue();
+            String currencyFilter = currencyFilterCombo.getValue();
+            String locationFilter = locationFilterCombo.getValue();
+            String paymentFilter = paymentFilterCombo.getValue();
+            String amountFilter = amountFilterCombo.getValue();
+
+            // Convert type filter to enum
+            com.sparrowwallet.sparrow.p2p.trade.TradeOfferType typeEnum = null;
+            if ("Buy BTC".equals(typeFilter)) {
+                typeEnum = com.sparrowwallet.sparrow.p2p.trade.TradeOfferType.BUY;
+            } else if ("Sell BTC".equals(typeFilter)) {
+                typeEnum = com.sparrowwallet.sparrow.p2p.trade.TradeOfferType.SELL;
+            }
+
+            // Convert payment filter to enum
+            com.sparrowwallet.sparrow.p2p.trade.PaymentMethod paymentEnum = null;
+            if (!"All".equals(paymentFilter)) {
+                try {
+                    // Match display name to enum
+                    for (com.sparrowwallet.sparrow.p2p.trade.PaymentMethod pm : com.sparrowwallet.sparrow.p2p.trade.PaymentMethod.values()) {
+                        if (pm.getDisplayName().equals(paymentFilter)) {
+                            paymentEnum = pm;
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not parse payment method filter: {}", paymentFilter);
+                }
+            }
+
+            // Apply filters through manager
+            List<TradeOffer> filteredOffers = offerManager.applyFilters(
+                typeEnum,
+                "All".equals(currencyFilter) ? null : currencyFilter,
+                paymentEnum,
+                "Any".equals(locationFilter) ? null : locationFilter,
+                "Any".equals(amountFilter) ? null : amountFilter
+            );
+
+            // Update ListView
+            offersListView.getItems().clear();
+            offersListView.getItems().addAll(filteredOffers);
+
+            // Update status
+            int offerCount = filteredOffers.size();
+            statusLabel.setText("Connected to 3 Nostr relays  •  " + offerCount + " offer" +
+                              (offerCount == 1 ? "" : "s") + " available");
+
+            log.info("Applied filters, showing {} offers", offerCount);
+        });
     }
 
     /**
      * Refresh offers from Nostr
      */
     private void refreshOffers() {
-        log.info("Refreshing offers from Nostr...");
-        // TODO: Implement Nostr offer fetching
+        log.error("=== REFRESH OFFERS CALLED ===");
+
         Platform.runLater(() -> {
-            statusLabel.setText("Refreshing offers...");
-            // Simulate refresh
-            new Thread(() -> {
-                try {
-                    Thread.sleep(1000);
-                    Platform.runLater(() -> {
-                        statusLabel.setText("Connected to 3 Nostr relays  •  0 offers available");
-                    });
-                } catch (InterruptedException e) {
-                    log.error("Refresh interrupted", e);
-                }
-            }).start();
+            // Get all offers from manager
+            List<TradeOffer> offers = offerManager.getAllOffers();
+
+            log.error("=== Got {} offers from manager ===", offers.size());
+
+            // Update ListView
+            offersListView.getItems().clear();
+            offersListView.getItems().addAll(offers);
+
+            log.error("=== ListView now has {} items ===", offersListView.getItems().size());
+
+            // Update status
+            int offerCount = offers.size();
+            statusLabel.setText("Connected to 3 Nostr relays  •  " + offerCount + " offer" + (offerCount == 1 ? "" : "s") + " available");
+
+            // Update activity stats
+            updateActivityStats();
+
+            log.error("=== REFRESH COMPLETE: {} offers ===", offerCount);
         });
     }
 
@@ -428,14 +559,16 @@ public class P2PExchangeController implements Initializable {
             if (newOffer != null) {
                 log.info("Offer created: {}", newOffer);
 
-                // TODO: Publish to Nostr
-                // TODO: Add to local offers list
-                // TODO: Refresh marketplace
+                // Publish to Nostr and add to local offers
+                offerManager.publishToNostr(newOffer);
+
+                // Refresh marketplace to show new offer
+                refreshOffers();
 
                 Alert success = new Alert(Alert.AlertType.INFORMATION);
                 success.setTitle("Offer Created");
                 success.setHeaderText("Trade Offer Created Successfully");
-                success.setContentText(newOffer.getDisplaySummary() + "\n\nOffer will be published to Nostr marketplace.");
+                success.setContentText(newOffer.getDisplaySummary() + "\n\nOffer has been published to the marketplace.");
                 success.showAndWait();
             }
         } catch (Exception e) {
@@ -449,10 +582,159 @@ public class P2PExchangeController implements Initializable {
     }
 
     /**
+     * Manage my offers
+     */
+    private void manageOffers() {
+        log.info("Opening Manage Offers dialog...");
+
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/trade/my-offers-dialog.fxml")
+            );
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setTitle("Manage My Offers - Sparrow");
+            stage.setScene(new javafx.scene.Scene(loader.load()));
+            stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            stage.setMinWidth(900);
+            stage.setMinHeight(700);
+
+            com.sparrowwallet.sparrow.p2p.trade.MyOffersController controller = loader.getController();
+            controller.setDialogStage(stage);
+
+            stage.showAndWait();
+
+            // Refresh stats after dialog closes
+            updateActivityStats();
+
+        } catch (Exception e) {
+            log.error("Failed to open Manage Offers dialog", e);
+            Alert error = new Alert(Alert.AlertType.ERROR);
+            error.setTitle("Error");
+            error.setHeaderText("Failed to Open Manage Offers");
+            error.setContentText(e.getMessage());
+            error.showAndWait();
+        }
+    }
+
+    /**
+     * View offer details
+     */
+    private void viewOfferDetails(TradeOffer offer) {
+        log.info("Viewing offer details: {}", offer.getId());
+
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/trade/offer-details-dialog.fxml")
+            );
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setTitle("Offer Details - Sparrow");
+            stage.setScene(new javafx.scene.Scene(loader.load()));
+            stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            stage.setMinWidth(700);
+            stage.setMinHeight(750);
+
+            com.sparrowwallet.sparrow.p2p.trade.OfferDetailsController controller = loader.getController();
+            controller.setDialogStage(stage);
+            controller.setOffer(offer);
+
+            // Increment view count
+            offerManager.incrementViewCount(offer.getId());
+
+            stage.showAndWait();
+
+        } catch (Exception e) {
+            log.error("Failed to open Offer Details dialog", e);
+            Alert error = new Alert(Alert.AlertType.ERROR);
+            error.setTitle("Error");
+            error.setHeaderText("Failed to View Offer");
+            error.setContentText(e.getMessage());
+            error.showAndWait();
+        }
+    }
+
+    /**
+     * Update activity statistics
+     */
+    private void updateActivityStats() {
+        int myOffersCount = offerManager.getMyActiveOffersCount();
+        openOffersLabel.setText("Open Offers: " + myOffersCount);
+
+        // TODO: Add active trades and completed trades counts when trade system is implemented
+        activeTradesLabel.setText("Active Trades: 0");
+        completedTradesLabel.setText("Completed Trades: 0");
+    }
+
+    /**
      * Cleanup when controller is destroyed
      */
     public void shutdown() {
         log.info("Shutting down P2P Exchange controller");
-        // Cleanup resources
+
+        // Stop Nostr P2P service
+        if (nostrP2PService != null) {
+            nostrP2PService.stop();
+        }
+
+        log.info("P2P Exchange controller shutdown complete");
+    }
+
+    /**
+     * Custom ListCell for displaying trade offers
+     */
+    private static class OfferListCell extends javafx.scene.control.ListCell<TradeOffer> {
+        @Override
+        protected void updateItem(TradeOffer offer, boolean empty) {
+            super.updateItem(offer, empty);
+
+            if (empty || offer == null) {
+                setText(null);
+                setGraphic(null);
+            } else {
+                // Create formatted display
+                javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(5);
+
+                // Main line: Type, Amount, Price
+                javafx.scene.layout.HBox mainLine = new javafx.scene.layout.HBox(10);
+                mainLine.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+                javafx.scene.control.Label typeLabel = new javafx.scene.control.Label(
+                    offer.getType().getDisplayName().toUpperCase()
+                );
+                typeLabel.setStyle("-fx-font-weight: bold;");
+
+                javafx.scene.control.Label amountLabel = new javafx.scene.control.Label(
+                    String.format("%.8f BTC", offer.getAmountBtc())
+                );
+
+                javafx.scene.control.Label priceLabel = new javafx.scene.control.Label(
+                    "@ " + offer.getCurrency() + " " + String.format("%.2f", offer.getPrice())
+                );
+
+                mainLine.getChildren().addAll(typeLabel, amountLabel, priceLabel);
+
+                // Details line: Payment method, Location
+                javafx.scene.layout.HBox detailsLine = new javafx.scene.layout.HBox(10);
+                detailsLine.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+                javafx.scene.control.Label paymentLabel = new javafx.scene.control.Label(
+                    "• " + offer.getPaymentMethod().getDisplayName()
+                );
+                paymentLabel.setStyle("-fx-text-fill: #666;");
+
+                if (offer.getLocation() != null && !offer.getLocation().isEmpty()) {
+                    javafx.scene.control.Label locationLabel = new javafx.scene.control.Label(
+                        "• " + offer.getLocation()
+                    );
+                    locationLabel.setStyle("-fx-text-fill: #666;");
+                    detailsLine.getChildren().addAll(paymentLabel, locationLabel);
+                } else {
+                    detailsLine.getChildren().add(paymentLabel);
+                }
+
+                content.getChildren().addAll(mainLine, detailsLine);
+                setGraphic(content);
+                setText(null);
+            }
+        }
     }
 }

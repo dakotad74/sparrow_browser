@@ -1495,8 +1495,10 @@ public class AppController implements Initializable {
     }
 
     public void showP2PExchange(ActionEvent event) {
+        log.error("=== SHOW P2P EXCHANGE CALLED ===");
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("p2p/p2p-exchange.fxml"));
+            log.error("=== LOADING FXML: p2p/p2p-exchange.fxml ===");
             Stage stage = new Stage();
             stage.setTitle("P2P Exchange - Sparrow");
             stage.setScene(new Scene(loader.load()));

@@ -1,10 +1,13 @@
 package com.sparrowwallet.sparrow.p2p.identity;
 
+import com.google.gson.*;
 import com.sparrowwallet.drongo.SecureString;
+import com.sparrowwallet.sparrow.io.Storage;
 import com.sparrowwallet.sparrow.nostr.NostrCrypto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.*;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -27,10 +30,12 @@ public class NostrIdentityManager {
     private static final Logger log = LoggerFactory.getLogger(NostrIdentityManager.class);
 
     private static NostrIdentityManager instance;
+    private static final String IDENTITIES_FILENAME = "nostr-identities.json";
 
-    // In-memory storage (TODO: persist to disk)
+    // Persistent storage
     private final Map<String, NostrIdentity> identities;
     private NostrIdentity activeIdentity;
+    private String activeIdentityId; // Store ID for persistence
 
     // Random name generation
     private static final String[] ADJECTIVES = {
@@ -42,6 +47,7 @@ public class NostrIdentityManager {
 
     private NostrIdentityManager() {
         this.identities = new ConcurrentHashMap<>();
+        loadFromDisk();
     }
 
     /**
@@ -84,6 +90,7 @@ public class NostrIdentityManager {
             identity.setAutoDelete(true);
 
             identities.put(identity.getId(), identity);
+            saveToDisk();
             log.info("Created ephemeral identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
 
             return identity;
@@ -113,9 +120,8 @@ public class NostrIdentityManager {
             identity.setAutoDelete(false);
 
             identities.put(identity.getId(), identity);
+            saveToDisk();
             log.info("Created persistent identity: {} ({})", identity.getDisplayName(), identity.getShortNpub());
-
-            // TODO: Persist to disk
 
             return identity;
 
@@ -141,6 +147,7 @@ public class NostrIdentityManager {
             NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, type);
 
             identities.put(identity.getId(), identity);
+            saveToDisk();
             log.info("Imported {} identity: {} ({})",
                 type.name().toLowerCase(), identity.getDisplayName(), identity.getShortNpub());
 
@@ -251,6 +258,7 @@ public class NostrIdentityManager {
 
         this.activeIdentity = identity;
         identity.setLastUsedAt(LocalDateTime.now());
+        saveToDisk();
         log.info("Active identity changed to: {} ({})",
             identity.getDisplayName(), identity.getShortNpub());
     }
@@ -270,9 +278,12 @@ public class NostrIdentityManager {
         // If this was the active identity, clear it
         if (activeIdentity != null && activeIdentity.getId().equals(id)) {
             activeIdentity = null;
+            activeIdentityId = null;
         }
 
-        // TODO: Remove from persistent storage
+        // Remove from storage
+        identities.remove(id);
+        saveToDisk();
     }
 
     /**
@@ -348,6 +359,150 @@ public class NostrIdentityManager {
     public void clearAll() {
         identities.clear();
         activeIdentity = null;
+        activeIdentityId = null;
+        saveToDisk();
         log.warn("Cleared all identities");
+    }
+
+    /**
+     * Save identities to disk
+     */
+    private void saveToDisk() {
+        try {
+            File sparrowDir = Storage.getSparrowDir();
+            File identitiesFile = new File(sparrowDir, IDENTITIES_FILENAME);
+
+            if(!identitiesFile.exists()) {
+                Storage.createOwnerOnlyFile(identitiesFile);
+            }
+
+            // Create JSON object to save
+            JsonObject root = new JsonObject();
+
+            // Save active identity ID
+            if(activeIdentity != null) {
+                root.addProperty("activeIdentityId", activeIdentity.getId());
+            }
+
+            // Save all identities
+            JsonArray identitiesArray = new JsonArray();
+            for(NostrIdentity identity : identities.values()) {
+                JsonObject identityJson = new JsonObject();
+                identityJson.addProperty("id", identity.getId());
+                identityJson.addProperty("npub", identity.getNpub());
+                identityJson.addProperty("nsec", identity.getNsec());
+                identityJson.addProperty("hex", identity.getHex());
+                identityJson.addProperty("displayName", identity.getDisplayName());
+                identityJson.addProperty("type", identity.getType().name());
+                identityJson.addProperty("isActive", identity.isActive());
+                identityJson.addProperty("createdAt", identity.getCreatedAt().toString());
+
+                if(identity.getLastUsedAt() != null) {
+                    identityJson.addProperty("lastUsedAt", identity.getLastUsedAt().toString());
+                }
+                if(identity.getExpiresAt() != null) {
+                    identityJson.addProperty("expiresAt", identity.getExpiresAt().toString());
+                }
+
+                identitiesArray.add(identityJson);
+            }
+            root.add("identities", identitiesArray);
+
+            // Write to file
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            try (Writer writer = new FileWriter(identitiesFile)) {
+                gson.toJson(root, writer);
+                writer.flush();
+            }
+
+            log.debug("Saved {} identities to disk", identities.size());
+
+        } catch (IOException e) {
+            log.error("Failed to save identities to disk", e);
+        }
+    }
+
+    /**
+     * Load identities from disk
+     */
+    private void loadFromDisk() {
+        try {
+            File sparrowDir = Storage.getSparrowDir();
+            File identitiesFile = new File(sparrowDir, IDENTITIES_FILENAME);
+
+            if(!identitiesFile.exists()) {
+                log.debug("No identities file found, starting fresh");
+                return;
+            }
+
+            // Read file
+            try (Reader reader = new FileReader(identitiesFile)) {
+                Gson gson = new Gson();
+                JsonObject root = gson.fromJson(reader, JsonObject.class);
+
+                if(root == null) {
+                    log.warn("Empty identities file");
+                    return;
+                }
+
+                // Load active identity ID
+                if(root.has("activeIdentityId")) {
+                    activeIdentityId = root.get("activeIdentityId").getAsString();
+                }
+
+                // Load identities
+                if(root.has("identities")) {
+                    JsonArray identitiesArray = root.getAsJsonArray("identities");
+                    for(JsonElement element : identitiesArray) {
+                        JsonObject identityJson = element.getAsJsonObject();
+
+                        try {
+                            String id = identityJson.get("id").getAsString();
+                            String npub = identityJson.get("npub").getAsString();
+                            String nsec = identityJson.get("nsec").getAsString();
+                            String hex = identityJson.get("hex").getAsString();
+                            String displayName = identityJson.get("displayName").getAsString();
+                            IdentityType type = IdentityType.valueOf(identityJson.get("type").getAsString());
+                            boolean isActive = identityJson.get("isActive").getAsBoolean();
+                            LocalDateTime createdAt = LocalDateTime.parse(identityJson.get("createdAt").getAsString());
+
+                            LocalDateTime lastUsedAt = null;
+                            if(identityJson.has("lastUsedAt")) {
+                                lastUsedAt = LocalDateTime.parse(identityJson.get("lastUsedAt").getAsString());
+                            }
+
+                            LocalDateTime expiresAt = null;
+                            if(identityJson.has("expiresAt")) {
+                                expiresAt = LocalDateTime.parse(identityJson.get("expiresAt").getAsString());
+                            }
+
+                            // Reconstruct identity
+                            NostrIdentity identity = new NostrIdentity(
+                                id, npub, nsec, hex, displayName, type,
+                                createdAt, lastUsedAt, expiresAt, isActive
+                            );
+
+                            identities.put(id, identity);
+
+                            // Set as active if it was the active identity
+                            if(id.equals(activeIdentityId)) {
+                                activeIdentity = identity;
+                            }
+
+                        } catch (Exception e) {
+                            log.error("Failed to load identity from JSON", e);
+                        }
+                    }
+                }
+
+                log.info("Loaded {} identities from disk (active: {})",
+                    identities.size(),
+                    activeIdentity != null ? activeIdentity.getDisplayName() : "none");
+
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to load identities from disk", e);
+        }
     }
 }

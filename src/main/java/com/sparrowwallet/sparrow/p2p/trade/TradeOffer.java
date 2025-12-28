@@ -23,6 +23,7 @@ public class TradeOffer {
     private String nostrEventId;
 
     // Creator's identity
+    private final String creatorHex;         // Public key in hex format
     private final String creatorNpub;
     private final String creatorDisplayName;
 
@@ -64,13 +65,14 @@ public class TradeOffer {
     /**
      * Create a new trade offer
      */
-    public TradeOffer(String creatorNpub, String creatorDisplayName, TradeOfferType type,
+    public TradeOffer(String creatorHex, String creatorDisplayName, TradeOfferType type,
                      long amountSats, String currency, double price, boolean useMarketPrice,
                      double premiumPercent, long minTradeSats, long maxTradeSats,
                      PaymentMethod paymentMethod, String location, String locationDetail,
                      String description, String terms, int escrowTimeHours) {
         this.id = UUID.randomUUID().toString();
-        this.creatorNpub = creatorNpub;
+        this.creatorHex = creatorHex;
+        this.creatorNpub = "npub1" + creatorHex.substring(0, Math.min(16, creatorHex.length())); // Simplified npub
         this.creatorDisplayName = creatorDisplayName;
         this.type = type;
         this.amountSats = amountSats;
@@ -95,6 +97,7 @@ public class TradeOffer {
     // Getters
     public String getId() { return id; }
     public String getNostrEventId() { return nostrEventId; }
+    public String getCreatorHex() { return creatorHex; }
     public String getCreatorNpub() { return creatorNpub; }
     public String getCreatorDisplayName() { return creatorDisplayName; }
     public TradeOfferType getType() { return type; }
@@ -222,6 +225,15 @@ public class TradeOffer {
             if (expiresAt == null) {
                 expiresAt = LocalDateTime.now().plusDays(7);
             }
+        }
+    }
+
+    /**
+     * Pause this offer (hide from marketplace)
+     */
+    public void pause() {
+        if (status == TradeOfferStatus.ACTIVE) {
+            status = TradeOfferStatus.PAUSED;
         }
     }
 

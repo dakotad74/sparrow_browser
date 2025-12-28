@@ -143,7 +143,10 @@
                         <Label text="Create an offer or accept" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
                         <Label text="one from the marketplace" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
                         <Label text="to start trading" styleClass="empty-state-sublabel" wrapText="true" textAlignment="CENTER"/>
-                        <Button fx:id="createOfferActivityButton" text="Create Offer" styleClass="primary-button"/>
+                        <HBox spacing="10" alignment="CENTER">
+                            <Button fx:id="createOfferActivityButton" text="Create Offer" styleClass="primary-button"/>
+                            <Button fx:id="manageOffersButton" text="Manage My Offers"/>
+                        </HBox>
                     </VBox>
 
                     <Separator/>

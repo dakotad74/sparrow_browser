@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.trade.MyOffersController"
+            prefWidth="900" prefHeight="700">
+
+    <!-- Title Bar -->
+    <top>
+        <VBox>
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <padding>
+                    <Insets top="15" right="20" bottom="15" left="20"/>
+                </padding>
+                <Label text="Manage My Offers"/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <!-- Main Content -->
+    <center>
+        <SplitPane dividerPositions="0.5">
+            <!-- Left: Offers List -->
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="My Offers"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="refreshButton" text="Refresh"/>
+                </HBox>
+
+                <ListView fx:id="myOffersListView" VBox.vgrow="ALWAYS"/>
+
+            </VBox>
+
+            <!-- Right: Selected Offer Details -->
+            <VBox spacing="15">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+
+                <Label text="Selected Offer Details"/>
+                <Separator/>
+
+                <!-- Offer Info -->
+                <VBox spacing="8">
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Type:" minWidth="100"/>
+                        <Label fx:id="selectedOfferTypeLabel" text="--"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Amount:" minWidth="100"/>
+                        <Label fx:id="selectedOfferAmountLabel" text="--"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Price:" minWidth="100"/>
+                        <Label fx:id="selectedOfferPriceLabel" text="--"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Status:" minWidth="100"/>
+                        <Label fx:id="selectedOfferStatusLabel" text="--"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Published:" minWidth="100"/>
+                        <Label fx:id="selectedOfferPublishedLabel" text="--"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Statistics:" minWidth="100"/>
+                        <Label fx:id="selectedOfferStatsLabel" text="--"/>
+                    </HBox>
+                </VBox>
+
+                <Separator/>
+
+                <!-- Description -->
+                <VBox spacing="5">
+                    <Label text="Description:"/>
+                    <TextArea fx:id="selectedOfferDescriptionArea"
+                              editable="false"
+                              wrapText="true"
+                              prefRowCount="6"
+                              VBox.vgrow="ALWAYS"/>
+                </VBox>
+
+                <Separator/>
+
+                <!-- Action Buttons -->
+                <VBox spacing="10">
+                    <Label text="Actions:"/>
+                    <HBox spacing="10">
+                        <Button fx:id="viewDetailsButton" text="View Full Details" prefWidth="150"/>
+                    </HBox>
+                    <HBox spacing="10">
+                        <Button fx:id="pauseResumeButton" text="Pause Offer" prefWidth="150"/>
+                    </HBox>
+                    <HBox spacing="10">
+                        <Button fx:id="cancelButton" text="Cancel Offer" prefWidth="150"/>
+                    </HBox>
+                </VBox>
+
+            </VBox>
+        </SplitPane>
+    </center>
+
+    <!-- Bottom Buttons -->
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <padding>
+                <Insets top="15" right="20" bottom="15" left="20"/>
+            </padding>
+            <Button fx:id="closeButton" text="Close"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>
