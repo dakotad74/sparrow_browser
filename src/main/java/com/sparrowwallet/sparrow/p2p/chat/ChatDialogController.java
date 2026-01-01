@@ -50,6 +50,8 @@ public class ChatDialogController implements Initializable {
     private String peerHex;
     private String peerName;
     private String peerNpub;
+    private String offerId;  // Track which offer this chat is about
+    private String conversationId;  // Unique ID: offerId or peerHex if no offer
 
     private ChatService chatService;
     private NostrIdentityManager identityManager;
@@ -99,9 +101,20 @@ public class ChatDialogController implements Initializable {
      * Set the peer information and load conversation
      */
     public void setPeer(String peerHex, String peerName, String peerNpub) {
+        setPeer(peerHex, peerName, peerNpub, null);
+    }
+
+    /**
+     * Set the peer information with offer context
+     */
+    public void setPeer(String peerHex, String peerName, String peerNpub, String offerId) {
         this.peerHex = peerHex;
         this.peerName = peerName;
         this.peerNpub = peerNpub;
+        this.offerId = offerId;
+
+        // Create unique conversation ID based on offer or just peer
+        this.conversationId = (offerId != null) ? offerId : peerHex;
 
         // Update UI
         peerNameLabel.setText(peerName);
@@ -111,13 +124,13 @@ public class ChatDialogController implements Initializable {
 
         // Update dialog title
         if (dialogStage != null) {
-            dialogStage.setTitle("Chat with " + peerName);
+            dialogStage.setTitle("Chat with " + peerName + (offerId != null ? " (Offer)" : ""));
         }
 
         // Subscribe to conversation
         try {
             chatService.subscribeToConversation(peerHex);
-            log.info("Subscribed to chat with {}", peerHex.substring(0, 8));
+            log.info("Subscribed to chat with {} for conversation {}", peerHex.substring(0, 8), conversationId.substring(0, 8));
         } catch (Exception e) {
             log.error("Failed to subscribe to conversation", e);
             showError("Failed to establish encrypted connection: " + e.getMessage());
@@ -131,7 +144,7 @@ public class ChatDialogController implements Initializable {
      * Load messages from conversation history
      */
     private void loadMessages() {
-        List<ChatMessage> messages = chatService.getConversation(peerHex);
+        List<ChatMessage> messages = chatService.getConversation(conversationId);
         messagesListView.getItems().setAll(messages);
 
         // Scroll to bottom
@@ -151,8 +164,8 @@ public class ChatDialogController implements Initializable {
         }
 
         try {
-            // Send encrypted message via ChatService
-            chatService.sendMessage(peerHex, messageText);
+            // Send encrypted message via ChatService with conversation context
+            chatService.sendMessage(peerHex, messageText, conversationId);
 
             // Clear input
             messageInputArea.clear();
@@ -160,7 +173,7 @@ public class ChatDialogController implements Initializable {
             // Reload messages (sendMessage adds to conversation)
             loadMessages();
 
-            log.info("Sent message to {}", peerHex.substring(0, 8));
+            log.info("Sent message to {} for conversation {}", peerHex.substring(0, 8), conversationId.substring(0, 8));
 
         } catch (Exception e) {
             log.error("Failed to send message", e);

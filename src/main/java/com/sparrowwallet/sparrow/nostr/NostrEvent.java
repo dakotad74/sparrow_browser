@@ -43,6 +43,7 @@ public class NostrEvent {
     /**
      * Event kinds for coordination
      */
+    public static final int KIND_DELETION = 5; // Event deletion (NIP-09)
     public static final int KIND_COORDINATION = 38383; // Custom kind for Bitcoin coordination
     public static final int KIND_P2P_TRADE_OFFER = 38400; // P2P trade offers (buy/sell BTC)
 

@@ -146,6 +146,7 @@
                         <HBox spacing="10" alignment="CENTER">
                             <Button fx:id="createOfferActivityButton" text="Create Offer" styleClass="primary-button"/>
                             <Button fx:id="manageOffersButton" text="Manage My Offers"/>
+                            <Button fx:id="viewChatsButton" text="View Chats"/>
                         </HBox>
                     </VBox>
 

@@ -1,6 +1,7 @@
 package com.sparrowwallet.sparrow.nostr;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.sparrowwallet.drongo.crypto.ECDSASignature;
 import com.sparrowwallet.drongo.crypto.ECKey;
@@ -29,7 +30,9 @@ import java.util.Base64;
  */
 public class NostrCrypto {
     private static final Logger log = LoggerFactory.getLogger(NostrCrypto.class);
-    private static final Gson gson = new Gson();
+    // CRITICAL: disableHtmlEscaping() prevents GSON from escaping = as \u003d
+    // which would break Nostr event ID calculation (NIP-01)
+    private static final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
 
     /**
      * Generate event ID from canonical JSON serialization.
@@ -60,13 +63,16 @@ public class NostrCrypto {
 
             // Serialize to compact JSON (no whitespace)
             String serialized = gson.toJson(canonical);
+            log.error("=== Canonical serialization for ID: {} ===", serialized);
 
             // SHA-256 hash
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(serialized.getBytes(StandardCharsets.UTF_8));
 
             // Convert to hex
-            return bytesToHex(hash);
+            String eventId = bytesToHex(hash);
+            log.error("=== Generated event ID: {} ===", eventId);
+            return eventId;
 
         } catch(Exception e) {
             log.error("Failed to generate event ID", e);
@@ -158,15 +164,27 @@ public class NostrCrypto {
      */
     public static String encrypt(String plaintext, String recipientPubkey, ECKey senderPrivkey) {
         try {
+            log.error("=== ENCRYPT: recipientPubkey={}, plaintext={} ===",
+                recipientPubkey.substring(0, 8), plaintext);
+
             // Convert Nostr pubkey (32 bytes x-coordinate) to compressed secp256k1 format (33 bytes)
             byte[] recipientPubkeyCompressed = nostrPubkeyToCompressed(recipientPubkey);
             byte[] senderPrivkeyBytes = senderPrivkey.getPrivKeyBytes();
 
+            log.error("=== ENCRYPT: recipientCompressed FULL={} ===",
+                bytesToHex(recipientPubkeyCompressed));
+            log.error("=== ENCRYPT: senderPriv={} ===",
+                bytesToHex(senderPrivkeyBytes).substring(0, 8));
+
             // ECDH: multiply recipient's public key by our private key
             byte[] sharedSecret = NativeSecp256k1.createECDHSecret(senderPrivkeyBytes, recipientPubkeyCompressed);
 
+            log.error("=== ENCRYPT: SharedSecret={} ===", bytesToHex(sharedSecret).substring(0, 16));
+
             // Use first 32 bytes as AES-256 key
             byte[] aesKey = MessageDigest.getInstance("SHA-256").digest(sharedSecret);
+
+            log.error("=== ENCRYPT: AES key={} ===", bytesToHex(aesKey).substring(0, 16));
 
             // Generate random IV
             byte[] iv = new byte[16];
@@ -181,7 +199,9 @@ public class NostrCrypto {
             String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
             String ivB64 = Base64.getEncoder().encodeToString(iv);
 
-            return ciphertextB64 + "?iv=" + ivB64;
+            String result = ciphertextB64 + "?iv=" + ivB64;
+            log.error("=== ENCRYPT: result={} ===", result.substring(0, Math.min(50, result.length())));
+            return result;
 
         } catch(Exception e) {
             log.error("Failed to encrypt content", e);
@@ -199,6 +219,9 @@ public class NostrCrypto {
      */
     public static String decrypt(String encryptedContent, String senderPubkey, ECKey recipientPrivkey) {
         try {
+            log.error("=== DECRYPT: senderPubkey={}, content={} ===",
+                senderPubkey.substring(0, 8), encryptedContent.substring(0, Math.min(50, encryptedContent.length())));
+
             // Parse ciphertext?iv format
             String[] parts = encryptedContent.split("\\?iv=");
             if(parts.length != 2) {
@@ -208,25 +231,96 @@ public class NostrCrypto {
             byte[] ciphertext = Base64.getDecoder().decode(parts[0]);
             byte[] iv = Base64.getDecoder().decode(parts[1]);
 
+            log.error("=== DECRYPT: Parsed ciphertext length={}, iv length={} ===", ciphertext.length, iv.length);
+
             // Convert Nostr pubkey (32 bytes x-coordinate) to compressed secp256k1 format (33 bytes)
             byte[] senderPubkeyCompressed = nostrPubkeyToCompressed(senderPubkey);
             byte[] recipientPrivkeyBytes = recipientPrivkey.getPrivKeyBytes();
 
+            log.error("=== DECRYPT: senderCompressed FULL={} ===",
+                bytesToHex(senderPubkeyCompressed));
+            log.error("=== DECRYPT: recipientPriv={} ===",
+                bytesToHex(recipientPrivkeyBytes).substring(0, 8));
+
             // ECDH: multiply sender's public key by our private key
             byte[] sharedSecret = NativeSecp256k1.createECDHSecret(recipientPrivkeyBytes, senderPubkeyCompressed);
 
+            log.error("=== DECRYPT: SharedSecret={} ===", bytesToHex(sharedSecret).substring(0, 16));
+
             // Use first 32 bytes as AES-256 key
             byte[] aesKey = MessageDigest.getInstance("SHA-256").digest(sharedSecret);
+
+            log.error("=== DECRYPT: AES key={} ===", bytesToHex(aesKey).substring(0, 16));
 
             // Decrypt with AES-256-CBC
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(aesKey, "AES"), new IvParameterSpec(iv));
             byte[] plaintext = cipher.doFinal(ciphertext);
 
-            return new String(plaintext, StandardCharsets.UTF_8);
+            String result = new String(plaintext, StandardCharsets.UTF_8);
+            log.error("=== DECRYPT SUCCESS: {} ===", result);
+            return result;
 
         } catch(Exception e) {
             log.error("Failed to decrypt content", e);
+            throw new RuntimeException("Failed to decrypt content", e);
+        }
+    }
+
+    /**
+     * Decrypt content using NIP-04 encryption with known compressed pubkey.
+     *
+     * @param encryptedContent Base64 encoded ciphertext?iv=ivBase64
+     * @param senderCompressedHex Sender's compressed public key (33 bytes with 02/03 prefix)
+     * @param recipientPrivkey Recipient's private key
+     * @return Decrypted plaintext
+     */
+    public static String decryptWithCompressed(String encryptedContent, String senderCompressedHex, ECKey recipientPrivkey) {
+        try {
+            log.error("=== DECRYPT WITH COMPRESSED: senderCompressed={}, content={} ===",
+                senderCompressedHex.substring(0, 8), encryptedContent.substring(0, Math.min(50, encryptedContent.length())));
+
+            // Parse ciphertext?iv format
+            String[] parts = encryptedContent.split("\\?iv=");
+            if(parts.length != 2) {
+                throw new IllegalArgumentException("Invalid encrypted content format");
+            }
+
+            byte[] ciphertext = Base64.getDecoder().decode(parts[0]);
+            byte[] iv = Base64.getDecoder().decode(parts[1]);
+
+            log.error("=== DECRYPT: Parsed ciphertext length={}, iv length={} ===", ciphertext.length, iv.length);
+
+            // Use the provided compressed pubkey directly
+            byte[] senderPubkeyCompressed = hexToBytes(senderCompressedHex);
+            byte[] recipientPrivkeyBytes = recipientPrivkey.getPrivKeyBytes();
+
+            log.error("=== DECRYPT: Using provided compressed pubkey FULL={} ===",
+                bytesToHex(senderPubkeyCompressed));
+            log.error("=== DECRYPT: recipientPriv={} ===",
+                bytesToHex(recipientPrivkeyBytes).substring(0, 8));
+
+            // ECDH: multiply sender's public key by our private key
+            byte[] sharedSecret = NativeSecp256k1.createECDHSecret(recipientPrivkeyBytes, senderPubkeyCompressed);
+
+            log.error("=== DECRYPT: SharedSecret={} ===", bytesToHex(sharedSecret).substring(0, 16));
+
+            // Use first 32 bytes as AES-256 key
+            byte[] aesKey = MessageDigest.getInstance("SHA-256").digest(sharedSecret);
+
+            log.error("=== DECRYPT: AES key={} ===", bytesToHex(aesKey).substring(0, 16));
+
+            // Decrypt with AES-256-CBC
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(aesKey, "AES"), new IvParameterSpec(iv));
+            byte[] plaintext = cipher.doFinal(ciphertext);
+
+            String result = new String(plaintext, StandardCharsets.UTF_8);
+            log.error("=== DECRYPT SUCCESS: {} ===", result);
+            return result;
+
+        } catch(Exception e) {
+            log.error("Failed to decrypt content with compressed pubkey", e);
             throw new RuntimeException("Failed to decrypt content", e);
         }
     }
@@ -264,6 +358,23 @@ public class NostrCrypto {
         ECKey key = new ECKey();
         byte[] privKeyBytes = key.getPrivKeyBytes();
         return bytesToHex(privKeyBytes);
+    }
+
+    /**
+     * Derive compressed public key (33 bytes with prefix) from hex private key.
+     *
+     * @param privateKeyHex 32-byte private key as hex string
+     * @return 33-byte compressed public key (02/03 prefix + 32-byte x-coordinate) as hex string
+     */
+    public static String deriveNostrPublicKeyCompressed(String privateKeyHex) {
+        try {
+            ECKey key = ECKey.fromPrivate(hexToBytes(privateKeyHex));
+            byte[] compressedPubKey = key.getPubKey(); // Returns compressed format (33 bytes)
+            return bytesToHex(compressedPubKey);
+        } catch (Exception e) {
+            log.error("Failed to derive compressed public key", e);
+            throw new RuntimeException("Failed to derive compressed public key", e);
+        }
     }
 
     /**
@@ -383,27 +494,33 @@ public class NostrCrypto {
                 throw new IllegalArgumentException("Nostr pubkey must be 32 bytes, got: " + xCoord.length);
             }
 
-            // Try even y-coordinate first (prefix 02)
+            // Try both prefixes and decompress to get full uncompressed pubkey
+            // The decompressed form will tell us which prefix is correct
             byte[] compressedEven = new byte[33];
             compressedEven[0] = 0x02;
             System.arraycopy(xCoord, 0, compressedEven, 1, 32);
 
+            byte[] compressedOdd = new byte[33];
+            compressedOdd[0] = 0x03;
+            System.arraycopy(xCoord, 0, compressedOdd, 1, 32);
+
+            // Try decompressing with 02 prefix
             try {
-                // Attempt to parse as valid secp256k1 point
-                ECKey.fromPublicOnly(compressedEven);
+                byte[] decompressed = NativeSecp256k1.decompress(compressedEven);
+                // Decompress succeeded with 02, this is the correct prefix
+                log.error("=== Successfully decompressed with prefix 02 (even y) for pubkey: {} ===", nostrPubkeyHex.substring(0, 8));
                 return compressedEven;
             } catch (Exception e) {
-                // Even y didn't work, try odd y (prefix 03)
-                byte[] compressedOdd = new byte[33];
-                compressedOdd[0] = 0x03;
-                System.arraycopy(xCoord, 0, compressedOdd, 1, 32);
-
+                // 02 didn't work, try 03
+                log.error("=== Prefix 02 failed, trying 03 for pubkey: {} ===", nostrPubkeyHex.substring(0, 8));
                 try {
-                    // Verify this is valid
-                    ECKey.fromPublicOnly(compressedOdd);
+                    byte[] decompressed = NativeSecp256k1.decompress(compressedOdd);
+                    // Decompress succeeded with 03, this is the correct prefix
+                    log.error("=== Successfully decompressed with prefix 03 (odd y) for pubkey: {} ===", nostrPubkeyHex.substring(0, 8));
                     return compressedOdd;
                 } catch (Exception e2) {
-                    throw new IllegalArgumentException("Invalid Nostr public key - cannot reconstruct point", e2);
+                    log.error("=== Both prefixes failed for pubkey: {} ===", nostrPubkeyHex.substring(0, 8));
+                    throw new IllegalArgumentException("Invalid Nostr public key - cannot decompress with either prefix", e2);
                 }
             }
 

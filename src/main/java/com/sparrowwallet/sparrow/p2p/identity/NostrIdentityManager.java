@@ -12,6 +12,8 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
@@ -37,6 +39,9 @@ public class NostrIdentityManager {
     private NostrIdentity activeIdentity;
     private String activeIdentityId; // Store ID for persistence
 
+    // Identity change listeners
+    private final List<BiConsumer<NostrIdentity, NostrIdentity>> identityChangeListeners;
+
     // Random name generation
     private static final String[] ADJECTIVES = {
         "Anonymous", "Silent", "Swift", "Phantom", "Shadow", "Ghost", "Quiet",
@@ -47,6 +52,7 @@ public class NostrIdentityManager {
 
     private NostrIdentityManager() {
         this.identities = new ConcurrentHashMap<>();
+        this.identityChangeListeners = new CopyOnWriteArrayList<>();
         loadFromDisk();
     }
 
@@ -76,6 +82,7 @@ public class NostrIdentityManager {
             String nsec = NostrCrypto.generateNostrPrivateKeyHex();
             String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
             String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+            String compressedHex = NostrCrypto.deriveNostrPublicKeyCompressed(nsec);
 
             // Generate random display name if not provided
             if (displayName == null || displayName.trim().isEmpty()) {
@@ -83,6 +90,7 @@ public class NostrIdentityManager {
             }
 
             NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, IdentityType.EPHEMERAL);
+            identity.setCompressedHex(compressedHex);
 
             // Ephemeral identities expire after trade completion
             // For now, set a default expiration time
@@ -110,6 +118,7 @@ public class NostrIdentityManager {
             String nsec = NostrCrypto.generateNostrPrivateKeyHex();
             String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
             String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+            String compressedHex = NostrCrypto.deriveNostrPublicKeyCompressed(nsec);
 
             // Persistent identities require a meaningful display name
             if (displayName == null || displayName.trim().isEmpty()) {
@@ -117,6 +126,7 @@ public class NostrIdentityManager {
             }
 
             NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, IdentityType.PERSISTENT);
+            identity.setCompressedHex(compressedHex);
             identity.setAutoDelete(false);
 
             identities.put(identity.getId(), identity);
@@ -138,6 +148,7 @@ public class NostrIdentityManager {
         try {
             String npub = NostrCrypto.deriveNostrPublicKeyNpub(nsec);
             String hex = NostrCrypto.deriveNostrPublicKeyHex(nsec);
+            String compressedHex = NostrCrypto.deriveNostrPublicKeyCompressed(nsec);
 
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = type == IdentityType.EPHEMERAL ?
@@ -145,6 +156,7 @@ public class NostrIdentityManager {
             }
 
             NostrIdentity identity = new NostrIdentity(nsec, npub, hex, displayName, type);
+            identity.setCompressedHex(compressedHex);
 
             identities.put(identity.getId(), identity);
             saveToDisk();
@@ -241,6 +253,26 @@ public class NostrIdentityManager {
     }
 
     /**
+     * Add a listener that will be notified when the active identity changes
+     * @param listener BiConsumer that receives (newIdentity, oldIdentity)
+     */
+    public void addIdentityChangeListener(BiConsumer<NostrIdentity, NostrIdentity> listener) {
+        if (listener != null) {
+            identityChangeListeners.add(listener);
+            log.debug("Added identity change listener");
+        }
+    }
+
+    /**
+     * Remove an identity change listener
+     * @param listener The listener to remove
+     */
+    public void removeIdentityChangeListener(BiConsumer<NostrIdentity, NostrIdentity> listener) {
+        identityChangeListeners.remove(listener);
+        log.debug("Removed identity change listener");
+    }
+
+    /**
      * Set the active identity
      */
     public void setActiveIdentity(NostrIdentity identity) {
@@ -256,11 +288,21 @@ public class NostrIdentityManager {
             throw new IllegalStateException("Cannot activate an expired identity");
         }
 
+        NostrIdentity oldIdentity = this.activeIdentity;
         this.activeIdentity = identity;
         identity.setLastUsedAt(LocalDateTime.now());
         saveToDisk();
         log.info("Active identity changed to: {} ({})",
             identity.getDisplayName(), identity.getShortNpub());
+
+        // Notify listeners of identity change
+        for (BiConsumer<NostrIdentity, NostrIdentity> listener : identityChangeListeners) {
+            try {
+                listener.accept(identity, oldIdentity);
+            } catch (Exception e) {
+                log.error("Error notifying identity change listener", e);
+            }
+        }
     }
 
     /**

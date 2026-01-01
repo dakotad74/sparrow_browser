@@ -307,6 +307,16 @@
                             <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="PEN_FANCY" />
                         </graphic>
                     </Button>
+                    <Button fx:id="muSig2Round1Button" HBox.hgrow="ALWAYS" text="MuSig2&#10;Round 1" contentDisplay="TOP" wrapText="true" textAlignment="CENTER" onAction="#startMuSig2Round1" visible="false">
+                        <graphic>
+                            <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="EXCHANGE_ALT" />
+                        </graphic>
+                    </Button>
+                    <Button fx:id="muSig2Round2Button" HBox.hgrow="ALWAYS" text="MuSig2&#10;Round 2" contentDisplay="TOP" wrapText="true" textAlignment="CENTER" onAction="#startMuSig2Round2" visible="false">
+                        <graphic>
+                            <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="KEY" />
+                        </graphic>
+                    </Button>
                 </HBox>
                 <HBox fx:id="broadcastButtonBox" styleClass="signatures-buttons" spacing="20">
                     <Button fx:id="viewFinalButton" HBox.hgrow="ALWAYS" text="View Final Transaction" contentDisplay="TOP" wrapText="true" textAlignment="CENTER" onAction="#extractTransaction">

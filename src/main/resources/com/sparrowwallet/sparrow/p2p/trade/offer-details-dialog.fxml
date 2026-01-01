@@ -154,7 +154,7 @@
             <padding>
                 <Insets top="15" right="20" bottom="15" left="20"/>
             </padding>
-            <Button fx:id="contactButton" text="Contact Seller"/>
+            <Button fx:id="contactButton" text="Contact Offer Seller"/>
             <Button fx:id="closeButton" text="Close"/>
         </HBox>
     </bottom>

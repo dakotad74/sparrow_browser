@@ -131,8 +131,8 @@ public class SettingsController extends WalletFormController implements Initiali
             }
             initialising = false;
 
-            multisigFieldset.setVisible(policyType.equals(PolicyType.MULTI));
-            if(policyType.equals(PolicyType.MULTI)) {
+            multisigFieldset.setVisible(policyType.equals(PolicyType.MULTI) || policyType.equals(PolicyType.MUSIG2));
+            if(policyType.equals(PolicyType.MULTI) || policyType.equals(PolicyType.MUSIG2)) {
                 totalKeystores.bind(multisigControl.highValueProperty());
             } else {
                 totalKeystores.set(1);
@@ -167,7 +167,7 @@ public class SettingsController extends WalletFormController implements Initiali
                             return;
                         } else if(optType.get() == ButtonType.YES) {
                             clearKeystoreTabs();
-                            if(walletForm.getWallet().getPolicyType() == PolicyType.MULTI) {
+                            if(walletForm.getWallet().getPolicyType() == PolicyType.MULTI || walletForm.getWallet().getPolicyType() == PolicyType.MUSIG2) {
                                 totalKeystores.bind(multisigControl.highValueProperty());
                             } else {
                                 totalKeystores.set(1);
@@ -225,7 +225,7 @@ public class SettingsController extends WalletFormController implements Initiali
                 keystoreTabs.getTabs().remove(keystoreTabs.getTabs().size() - 1);
             }
 
-            if(walletForm.getWallet().getPolicyType().equals(PolicyType.MULTI)) {
+            if(walletForm.getWallet().getPolicyType().equals(PolicyType.MULTI) || walletForm.getWallet().getPolicyType().equals(PolicyType.MUSIG2)) {
                 EventManager.get().post(new SettingsChangedEvent(walletForm.getWallet(), SettingsChangedEvent.Type.MULTISIG_TOTAL));
             }
         });
@@ -261,7 +261,7 @@ public class SettingsController extends WalletFormController implements Initiali
             saveWallet(false, false);
 
             Wallet wallet = walletForm.getWallet();
-            if(wallet.getPolicyType() == PolicyType.MULTI && wallet.getDefaultPolicy().getNumSignaturesRequired() < wallet.getKeystores().size() && addressChange) {
+            if((wallet.getPolicyType() == PolicyType.MULTI || wallet.getPolicyType() == PolicyType.MUSIG2) && wallet.getDefaultPolicy().getNumSignaturesRequired() < wallet.getKeystores().size() && addressChange) {
                 String outputDescriptor = OutputDescriptor.getOutputDescriptor(wallet, KeyPurpose.DEFAULT_PURPOSES, null).toString(true);
                 CryptoOutput cryptoOutput = getCryptoOutput(wallet);
                 MultisigBackupDialog dialog = new MultisigBackupDialog(wallet, outputDescriptor, cryptoOutput.toUR());
@@ -292,7 +292,7 @@ public class SettingsController extends WalletFormController implements Initiali
 
         if(wallet.getPolicyType().equals(PolicyType.SINGLE)) {
             totalKeystores.setValue(1);
-        } else if(wallet.getPolicyType().equals(PolicyType.MULTI)) {
+        } else if(wallet.getPolicyType().equals(PolicyType.MULTI) || wallet.getPolicyType().equals(PolicyType.MUSIG2)) {
             multisigControl.setMax(Math.max(multisigControl.getMax(), wallet.getKeystores().size()));
             multisigControl.highValueProperty().set(wallet.getKeystores().size());
             multisigControl.lowValueProperty().set(wallet.getDefaultPolicy().getNumSignaturesRequired());
@@ -398,7 +398,7 @@ public class SettingsController extends WalletFormController implements Initiali
         CryptoOutput cryptoOutput = null;
         if(wallet.getPolicyType() == PolicyType.SINGLE) {
             cryptoOutput = new CryptoOutput(scriptExpressions, getCryptoHDKey(wallet.getKeystores().get(0)));
-        } else if(wallet.getPolicyType() == PolicyType.MULTI) {
+        } else if(wallet.getPolicyType() == PolicyType.MULTI || wallet.getPolicyType() == PolicyType.MUSIG2) {
             WalletNode firstReceive = new WalletNode(wallet, KeyPurpose.RECEIVE, 0);
             Utils.LexicographicByteArrayComparator lexicographicByteArrayComparator = new Utils.LexicographicByteArrayComparator();
             List<CryptoHDKey> cryptoHDKeys = wallet.getKeystores().stream().sorted((keystore1, keystore2) -> {
@@ -451,7 +451,7 @@ public class SettingsController extends WalletFormController implements Initiali
         dialog.initOwner(editDescriptor.getScene().getWindow());
         dialog.setTitle("Edit wallet output descriptor");
         dialog.getDialogPane().setHeaderText("The wallet configuration is specified in the output descriptor.\nChanges to the output descriptor will modify the wallet configuration." +
-                (walletForm.getWallet().getPolicyType() == PolicyType.MULTI ? "\nKey expressions are shown in canonical order." : ""));
+                (walletForm.getWallet().getPolicyType() == PolicyType.MULTI || walletForm.getWallet().getPolicyType() == PolicyType.MUSIG2 ? "\nKey expressions are shown in canonical order." : ""));
         Optional<String> text = dialog.showAndWait();
         if(text.isPresent() && !text.get().isEmpty() && !text.get().equals(outputDescriptorString)) {
             if(text.get().contains("(multi(")) {
@@ -597,7 +597,7 @@ public class SettingsController extends WalletFormController implements Initiali
         dialog.initOwner(showDescriptor.getScene().getWindow());
         dialog.setTitle("Show wallet output descriptor");
         dialog.getDialogPane().setHeaderText("The wallet configuration is specified in the output descriptor.\nThis wallet is no longer editable - create a new wallet to change the descriptor." +
-                (walletForm.getWallet().getPolicyType() == PolicyType.MULTI ? "\nKey expressions are shown in canonical order." : ""));
+                (walletForm.getWallet().getPolicyType() == PolicyType.MULTI || walletForm.getWallet().getPolicyType() == PolicyType.MUSIG2 ? "\nKey expressions are shown in canonical order." : ""));
         dialog.showAndWait();
     }
 
@@ -829,7 +829,7 @@ public class SettingsController extends WalletFormController implements Initiali
         if(walletForm.getWallet().equals(wallet)) {
             if(wallet.getPolicyType() == PolicyType.SINGLE) {
                 wallet.setDefaultPolicy(Policy.getPolicy(wallet.getPolicyType(), wallet.getScriptType(), wallet.getKeystores(), 1));
-            } else if(wallet.getPolicyType() == PolicyType.MULTI) {
+            } else if(wallet.getPolicyType() == PolicyType.MULTI || wallet.getPolicyType() == PolicyType.MUSIG2) {
                 wallet.setDefaultPolicy(Policy.getPolicy(wallet.getPolicyType(), wallet.getScriptType(), wallet.getKeystores(), (int)multisigControl.getLowValue()));
             }
 

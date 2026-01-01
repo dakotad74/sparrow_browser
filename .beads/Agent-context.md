@@ -55,19 +55,54 @@ SparrowDev/
 
 ### Requisitos Críticos (IMPORTANTE)
 
-1. **SIEMPRE usar rebuild completo:**
+1. **SIEMPRE trabajar desde el directorio correcto:**
    ```bash
-   cd sparrow
+   cd /home/r2d2/Desarrollo/SparrowDev/sparrow
+   ```
+   ⚠️ **CRÍTICO:** Todos los comandos (gradlew, scripts) deben ejecutarse desde `/home/r2d2/Desarrollo/SparrowDev/sparrow`, NO desde `/home/r2d2/Desarrollo/SparrowDev/`
+
+2. **SIEMPRE usar rebuild completo con clean:**
+   ```bash
+   cd /home/r2d2/Desarrollo/SparrowDev/sparrow
+   ./gradlew clean compileJava
+   # O para testing completo:
    ./gradlew clean jpackage
    ```
-   ⚠️ **NUNCA usar solo `compileJava`** - Los cambios no se reflejan en las instancias debido al empaquetado.
 
-2. **Sleeps optimizados (reducidos 75%):**
+   ⚠️ **REGLA CRÍTICA - NUNCA OLVIDAR:**
+   - **SIEMPRE** usar `./gradlew clean compileJava` o `./gradlew clean jpackage`
+   - **NUNCA** usar solo `./gradlew compileJava` sin `clean`
+   - **RAZÓN:** Los cambios en archivos .fxml, recursos, o código no se reflejan sin clean
+   - **CONSECUENCIA:** Perder tiempo debugging código que no está compilado
+   - **ESTA REGLA ES ABSOLUTA - SIN EXCEPCIONES**
+
+3. **Reiniciar instancias correctamente:**
+   ⚠️ **NO usar comandos encadenados con pkill**:
+   ```bash
+   # INCORRECTO - NO FUNCIONA:
+   pkill -9 -f Sparrow; sleep 2; rm /tmp/sparrow-*.log 2>/dev/null; ./.scripts/run-two-instances.sh
+   ```
+
+   ✅ **CORRECTO - Usar comandos separados**:
+   ```bash
+   # Primero matar procesos:
+   pkill -9 -f Sparrow
+
+   # Luego limpiar logs:
+   rm /tmp/sparrow-*.log 2>/dev/null
+
+   # Finalmente iniciar desde el directorio correcto:
+   cd /home/r2d2/Desarrollo/SparrowDev/sparrow
+   ./.scripts/run-two-instances.sh
+   ```
+   **Razón**: Los comandos encadenados con `;` NO cambian al directorio correcto antes de ejecutar el script.
+
+4. **Sleeps optimizados (reducidos 75%):**
    - Usar `sleep 4` en lugar de `sleep 15`
    - Usar `sleep 8` en lugar de `sleep 30`
    - El sistema arranca más rápido de lo que pensábamos inicialmente
 
-3. **Script fix para .scripts/ directory:**
+5. **Script fix para .scripts/ directory:**
    - Los scripts en `.scripts/` deben detectar el directorio del proyecto
    - Usar este patrón en todos los scripts:
    ```bash
@@ -89,14 +124,14 @@ SparrowDev/
 - Logs en `/tmp/sparrow-alice.log` y `/tmp/sparrow-bob.log`
 - **Fix aplicado:** Detecta correctamente PROJECT_DIR desde `.scripts/`
 
-**Uso desde cualquier lugar:**
+**IMPORTANTE - Directorio de ejecución:**
+⚠️ El script DEBE ejecutarse desde `/home/r2d2/Desarrollo/SparrowDev/sparrow`:
 ```bash
-# Desde sparrow/:
+cd /home/r2d2/Desarrollo/SparrowDev/sparrow
 ./.scripts/run-two-instances.sh
-
-# O usando el wrapper (si está en sparrow/):
-./run-instances.sh
 ```
+
+**NO ejecutar desde `/home/r2d2/Desarrollo/SparrowDev/`** - fallará al buscar el binario y gradlew.
 
 ---
 

@@ -17,7 +17,7 @@ import java.util.UUID;
 public class TradeOffer {
 
     // Unique identifier (local)
-    private final String id;
+    private String id;
 
     // Nostr event ID (when published)
     private String nostrEventId;
@@ -123,6 +123,7 @@ public class TradeOffer {
     public int getContactCount() { return contactCount; }
 
     // Setters for mutable fields
+    public void setId(String id) { this.id = id; }
     public void setNostrEventId(String nostrEventId) { this.nostrEventId = nostrEventId; }
     public void setStatus(TradeOfferStatus status) { this.status = status; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }

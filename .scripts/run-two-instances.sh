@@ -89,8 +89,8 @@ echo "   Log: /tmp/sparrow-alice.log"
 
 # Wait for first instance to initialize
 echo ""
-echo "Waiting 10 seconds for Instance A to initialize..."
-sleep 10
+echo "Waiting 5 seconds for Instance A to initialize..."
+sleep 5
 
 echo ""
 echo "=========================================="

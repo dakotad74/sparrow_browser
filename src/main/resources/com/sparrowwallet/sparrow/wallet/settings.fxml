@@ -37,6 +37,7 @@
                                 <FXCollections fx:factory="observableArrayList">
                                     <PolicyType fx:constant="SINGLE" />
                                     <PolicyType fx:constant="MULTI" />
+                                    <PolicyType fx:constant="MUSIG2" />
                                     <!-- <PolicyType fx:constant="CUSTOM" /> -->
                                 </FXCollections>
                             </items>
@@ -54,6 +55,7 @@
                                     <ScriptType fx:constant="P2SH_P2WSH" />
                                     <ScriptType fx:constant="P2WPKH" />
                                     <ScriptType fx:constant="P2WSH" />
+                                    <ScriptType fx:constant="P2TR" />
                                 </FXCollections>
                             </items>
                         </ComboBox>

@@ -142,11 +142,21 @@ public class ChatsListController implements Initializable {
             chatStage.initModality(Modality.NONE);
             chatStage.initOwner(dialogStage);
 
+            // Get the real peer hex from the conversation (not the conversationId)
+            String conversationId = summary.peerHex;  // summary.peerHex is actually conversationId
+            String realPeerHex = chatService.getPeerHexForConversation(conversationId);
+
+            if (realPeerHex == null) {
+                log.error("Could not determine peer hex for conversation {}", conversationId.substring(0, 8));
+                return;
+            }
+
             controller.setDialogStage(chatStage);
             controller.setPeer(
-                summary.peerHex,
+                realPeerHex,
                 summary.peerName,
-                "npub1" + summary.peerHex.substring(0, 16) // TODO: proper npub encoding
+                "npub1" + realPeerHex.substring(0, 16), // TODO: proper npub encoding
+                conversationId.equals(realPeerHex) ? null : conversationId  // Pass offerId if different from peerHex
             );
 
             Scene scene = new Scene(root);

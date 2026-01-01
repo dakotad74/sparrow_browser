@@ -25,7 +25,8 @@ public class NostrIdentity {
     private final String id;                    // UUID local identifier
     private String nsec;                        // Private key (hex format, will be encrypted in storage)
     private String npub;                        // Public key (npub format)
-    private String hex;                         // Public key (hex format)
+    private String hex;                         // Public key (hex format, x-only 32 bytes)
+    private String compressedHex;               // Public key compressed (33 bytes with prefix 02 or 03)
     private String displayName;                 // User-visible name
     private final IdentityType type;            // EPHEMERAL or PERSISTENT
 
@@ -112,6 +113,14 @@ public class NostrIdentity {
 
     public String getHex() {
         return hex;
+    }
+
+    public String getCompressedHex() {
+        return compressedHex;
+    }
+
+    public void setCompressedHex(String compressedHex) {
+        this.compressedHex = compressedHex;
     }
 
     public String getDisplayName() {

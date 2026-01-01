@@ -15,6 +15,7 @@ import org.fxmisc.richtext.CodeArea;
 import java.util.List;
 
 import static com.sparrowwallet.drongo.policy.PolicyType.MULTI;
+import static com.sparrowwallet.drongo.policy.PolicyType.MUSIG2;
 import static com.sparrowwallet.drongo.policy.PolicyType.SINGLE;
 import static com.sparrowwallet.drongo.protocol.ScriptType.MULTISIG;
 
@@ -50,6 +51,22 @@ public class DescriptorArea extends CodeArea {
             }
 
             append(MULTISIG.getCloseDescriptor(), "descriptor-text");
+            append(scriptType.getCloseDescriptor(), "descriptor-text");
+        }
+
+        if(MUSIG2.equals(policyType)) {
+            append(scriptType.getDescriptor(), "descriptor-text");
+            append("musig(", "descriptor-text");
+
+            for(int i = 0; i < keystores.size(); i++) {
+                if(i > 0) {
+                    append(",", "descriptor-text");
+                }
+                Keystore keystore = keystores.get(i);
+                replace(getLength(), getLength(), keystore.getScriptName(), List.of(keystore.isValid() ? "descriptor-text" : "descriptor-error", keystore.getScriptName()));
+            }
+
+            append(")", "descriptor-text");
             append(scriptType.getCloseDescriptor(), "descriptor-text");
         }
     }

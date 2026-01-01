@@ -48,13 +48,14 @@ public class NostrRelayManager {
     private final Gson gson;
     private final ScheduledExecutorService executor;
 
-    private Consumer<NostrEvent> messageHandler;
+    private final List<Consumer<NostrEvent>> messageHandlers;
     private ECKey privateKey; // Optional: for signing events
     private boolean connected;
 
     public NostrRelayManager(List<String> relayUrls) {
         this.relayUrls = new ArrayList<>(relayUrls);
         this.connections = new ConcurrentHashMap<>();
+        this.messageHandlers = new CopyOnWriteArrayList<>();
         this.gson = new Gson();
         this.executor = Executors.newScheduledThreadPool(2, r -> {
             Thread thread = new Thread(r);
@@ -168,10 +169,30 @@ public class NostrRelayManager {
     }
 
     /**
-     * Set message handler for incoming events
+     * Set message handler for incoming events (clears existing handlers).
+     * For backwards compatibility. Consider using addMessageHandler() instead.
      */
     public void setMessageHandler(Consumer<NostrEvent> handler) {
-        this.messageHandler = handler;
+        this.messageHandlers.clear();
+        if (handler != null) {
+            this.messageHandlers.add(handler);
+        }
+    }
+
+    /**
+     * Add a message handler for incoming events (allows multiple handlers).
+     */
+    public void addMessageHandler(Consumer<NostrEvent> handler) {
+        if (handler != null && !this.messageHandlers.contains(handler)) {
+            this.messageHandlers.add(handler);
+        }
+    }
+
+    /**
+     * Remove a message handler.
+     */
+    public void removeMessageHandler(Consumer<NostrEvent> handler) {
+        this.messageHandlers.remove(handler);
     }
 
     /**
@@ -193,14 +214,21 @@ public class NostrRelayManager {
      * Event ID and signature are automatically generated.
      */
     public void publishEvent(NostrEvent event) {
+        log.error("=== publishEvent() called: kind={}, connected={}, privateKey={} ===",
+            event.getKind(), connected, privateKey != null ? "SET" : "NULL");
+
         if(!connected || connections.isEmpty()) {
+            log.error("=== EARLY RETURN: not connected or no connections ===");
             log.warn("Cannot publish event - not connected to any relays");
             return;
         }
 
+        log.error("=== Passed connection check, about to sign ===");
+
         // Sign event if private key is available
         if(privateKey != null && event.getId() == null) {
             try {
+                log.error("=== Signing event... ===");
                 // Generate event ID
                 String eventId = NostrCrypto.generateEventId(event);
                 event.setId(eventId);
@@ -209,7 +237,7 @@ public class NostrRelayManager {
                 String signature = NostrCrypto.signEvent(eventId, privateKey);
                 event.setSig(signature);
 
-                log.debug("Event signed: id={}", eventId.substring(0, Math.min(8, eventId.length())));
+                log.error("=== Event signed: id={} ===", eventId.substring(0, 8));
 
             } catch(Exception e) {
                 log.error("Failed to sign event", e);
@@ -219,10 +247,14 @@ public class NostrRelayManager {
             log.warn("Publishing unsigned event (no private key set) - relay may reject");
         }
 
+        log.error("=== About to serialize event ===");
+
         // Serialize event to JSON
         String eventJson = gson.toJson(event);
         String message = "[\"EVENT\"," + eventJson + "]";
 
+        log.error("=== Event serialized, message length: {} ===", message.length());
+        log.error("=== Event JSON: {} ===", eventJson);
         log.info("Publishing event: kind={}, content length={}, signed={}",
             event.getKind(), event.getContent().length(), event.getSig() != null);
 
@@ -245,6 +277,9 @@ public class NostrRelayManager {
      * Nostr protocol: ["REQ", <subscription_id>, <filters object>]
      */
     public void subscribe(String subscriptionId, Map<String, Object> filters) {
+        log.error("=== subscribe() called: id={}, connected={}, connections.size={} ===",
+            subscriptionId, connected, connections != null ? connections.size() : "NULL");
+
         if(!connected || connections.isEmpty()) {
             log.warn("Cannot subscribe - not connected to any relays");
             return;
@@ -380,9 +415,13 @@ public class NostrRelayManager {
             NostrEvent event = gson.fromJson(eventJson, NostrEvent.class);
             log.debug("Received event: kind={}, subscription={}", event.getKind(), subscriptionId);
 
-            // Pass to message handler if set
-            if(messageHandler != null) {
-                messageHandler.accept(event);
+            // Pass to all message handlers
+            for (Consumer<NostrEvent> handler : messageHandlers) {
+                try {
+                    handler.accept(event);
+                } catch (Exception handlerEx) {
+                    log.error("Error in message handler", handlerEx);
+                }
             }
         } catch(Exception e) {
             log.error("Failed to parse EVENT message", e);

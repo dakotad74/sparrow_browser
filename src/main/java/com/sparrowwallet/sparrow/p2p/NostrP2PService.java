@@ -83,9 +83,9 @@ public class NostrP2PService {
         }
 
         // Configure message handler (after relays are connected)
-        // This chains P2P handler with coordination handler
-        relayManager.setMessageHandler(event -> {
-            log.error("=== RECEIVED EVENT: kind={}, pubkey={} ===", event.getKind(), event.getPubkey().substring(0, 8));
+        // Use addMessageHandler to allow multiple handlers (ChatService, P2PService, etc.)
+        relayManager.addMessageHandler(event -> {
+            log.error("=== NostrP2PService RECEIVED EVENT: kind={}, pubkey={} ===", event.getKind(), event.getPubkey().substring(0, 8));
 
             // Process P2P events (kind 38400)
             handleIncomingEvent(event);
@@ -96,23 +96,24 @@ public class NostrP2PService {
                 // This is a workaround - coordination handler is lost
             }
         });
-        log.error("=== MESSAGE HANDLER SET (CHAINED) ===");
+        log.error("=== MESSAGE HANDLER ADDED (NostrP2PService) ===");
 
-        // Create filter for trade offers (kind: 38400)
+        // Create filter for trade offers (kind: 38400) and deletions (kind: 5)
         Map<String, Object> filter = new HashMap<>();
-        filter.put("kinds", List.of(NostrEvent.KIND_P2P_TRADE_OFFER));
+        filter.put("kinds", List.of(NostrEvent.KIND_P2P_TRADE_OFFER, NostrEvent.KIND_DELETION));
 
         // Get offers from last 24 hours (not just future ones)
         long oneDayAgo = (System.currentTimeMillis() / 1000) - (24 * 60 * 60);
         filter.put("since", oneDayAgo);
 
-        // Limit to 100 most recent offers
-        filter.put("limit", 100);
+        // Limit to 200 most recent events (offers + deletions)
+        filter.put("limit", 200);
 
         // Generate unique subscription ID
         subscriptionId = "p2p-offers-" + System.currentTimeMillis();
 
-        log.error("=== SUBSCRIBING TO P2P TRADE OFFERS (kind: {}) ===", NostrEvent.KIND_P2P_TRADE_OFFER);
+        log.error("=== SUBSCRIBING TO P2P TRADE OFFERS AND DELETIONS (kinds: {}, {}) ===",
+                 NostrEvent.KIND_P2P_TRADE_OFFER, NostrEvent.KIND_DELETION);
         relayManager.subscribe(subscriptionId, filter);
 
         subscribed = true;
@@ -166,6 +167,65 @@ public class NostrP2PService {
     }
 
     /**
+     * Cancel an offer by publishing a deletion event (NIP-09)
+     */
+    public void cancelOffer(TradeOffer offer) {
+        NostrRelayManager relayManager = eventService.getRelayManager();
+        if (relayManager == null || !relayManager.isConnected()) {
+            log.warn("Cannot cancel offer: not connected to relays");
+            return;
+        }
+
+        // Get active identity
+        NostrIdentity identity = identityManager.getActiveIdentity();
+        if (identity == null) {
+            log.error("Cannot cancel offer: no active identity");
+            return;
+        }
+
+        // Check if offer has a Nostr event ID
+        String eventId = offer.getNostrEventId();
+        if (eventId == null || eventId.isEmpty()) {
+            log.info("Offer has no Nostr event ID - removing locally only: {}", offer.getId());
+            // Remove from local storage only (not published, so no deletion event needed)
+            offerManager.removeMyOffer(offer.getId());
+            return;
+        }
+
+        try {
+            // Create deletion event (kind 5) per NIP-09
+            NostrEvent deletionEvent = new NostrEvent(identity.getHex(), NostrEvent.KIND_DELETION, "");
+
+            // Add 'e' tag referencing the event to delete
+            deletionEvent.addTag("e", eventId);
+
+            // Optional: add reason
+            deletionEvent.setContent("Offer cancelled by creator");
+
+            // Set private key for signing
+            String nsecHex = identity.getNsec();
+            if (nsecHex == null || nsecHex.isEmpty()) {
+                log.error("Cannot cancel offer: identity has no private key");
+                return;
+            }
+
+            ECKey privateKey = ECKey.fromPrivate(Utils.hexToBytes(nsecHex));
+            relayManager.setPrivateKey(privateKey);
+
+            // Publish deletion event
+            relayManager.publishEvent(deletionEvent);
+
+            log.info("Published cancellation event for offer: {} (event: {})", offer.getId(), eventId);
+
+            // Also remove from local storage
+            offerManager.removeMyOffer(offer.getId());
+
+        } catch (Exception e) {
+            log.error("Failed to publish cancellation event", e);
+        }
+    }
+
+    /**
      * Create Nostr event from trade offer
      */
     private NostrEvent createOfferEvent(TradeOffer offer, NostrIdentity identity) {
@@ -196,6 +256,11 @@ public class NostrP2PService {
         content.addProperty("max_trade_sats", offer.getMaxTradeSats());
         content.addProperty("escrow_time_hours", offer.getEscrowTimeHours());
 
+        // Add creator display name for marketplace display
+        if (identity.getDisplayName() != null && !identity.getDisplayName().isEmpty()) {
+            content.addProperty("creator_display_name", identity.getDisplayName());
+        }
+
         // Create Nostr event
         NostrEvent event = new NostrEvent(
             identity.getHex(),
@@ -221,6 +286,12 @@ public class NostrP2PService {
      */
     private void handleIncomingEvent(NostrEvent event) {
         log.error("=== handleIncomingEvent called: kind={} ===", event.getKind());
+
+        // Handle deletion events (kind 5)
+        if (event.getKind() == NostrEvent.KIND_DELETION) {
+            handleDeletionEvent(event);
+            return;
+        }
 
         if (event.getKind() != NostrEvent.KIND_P2P_TRADE_OFFER) {
             log.error("=== Not a trade offer, kind={} (expected {}) ===", event.getKind(), NostrEvent.KIND_P2P_TRADE_OFFER);
@@ -285,7 +356,10 @@ public class NostrP2PService {
             // Get creator info from event
             String creatorHex = event.getPubkey();
             String creatorNpub = convertHexToNpub(creatorHex);
-            String creatorName = "Anon"; // Default name, could fetch from profile events
+            // Get display name from event content, fallback to "Anon"
+            String creatorName = content.has("creator_display_name")
+                ? content.get("creator_display_name").getAsString()
+                : "Anon";
 
             // Create offer object
             TradeOffer offer = new TradeOffer(
@@ -307,6 +381,9 @@ public class NostrP2PService {
                 escrowTimeHours
             );
 
+            // Set the offer ID from the event (so it matches the original offer)
+            offer.setId(offerId);
+
             // Set Nostr event ID
             offer.setNostrEventId(event.getId());
 
@@ -325,6 +402,37 @@ public class NostrP2PService {
         } catch (Exception e) {
             log.error("Failed to parse offer content", e);
             return null;
+        }
+    }
+
+    /**
+     * Handle deletion event (kind 5) per NIP-09
+     */
+    private void handleDeletionEvent(NostrEvent event) {
+        log.info("Received deletion event from: {}", event.getPubkey().substring(0, 8));
+
+        // Get the event IDs being deleted from 'e' tags
+        for (List<String> tag : event.getTags()) {
+            if (tag.size() >= 2 && tag.get(0).equals("e")) {
+                String deletedEventId = tag.get(1);
+                log.info("Deletion event references: {}", deletedEventId.substring(0, 8));
+
+                // Find and remove the offer with this event ID
+                TradeOfferManager offerManager = TradeOfferManager.getInstance();
+                TradeOffer deletedOffer = offerManager.getOfferByNostrEventId(deletedEventId);
+
+                if (deletedOffer != null) {
+                    log.info("Removing deleted offer: {} ({})",
+                             deletedOffer.getId(), deletedOffer.getType());
+
+                    // Remove from marketplace
+                    offerManager.removeOfferByNostrEventId(deletedEventId);
+
+                    log.info("Offer successfully removed after deletion event");
+                } else {
+                    log.debug("Deletion event for unknown offer: {}", deletedEventId.substring(0, 8));
+                }
+            }
         }
     }
 

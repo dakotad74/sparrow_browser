@@ -68,14 +68,33 @@ public class TradeOfferManager {
             throw new IllegalArgumentException("Offer cannot be null");
         }
 
-        // Check if this is our own offer (don't add to marketplace, already in myOffers)
+        // Check if this is our own offer that we actually created (exists in myOffers)
         com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager identityManager =
             com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager.getInstance();
         com.sparrowwallet.sparrow.p2p.identity.NostrIdentity activeIdentity = identityManager.getActiveIdentity();
 
         if (activeIdentity != null && offer.getCreatorHex().equals(activeIdentity.getHex())) {
-            log.debug("Skipping own offer from marketplace (already in myOffers): {}", offer.getId());
-            return;
+            // This is from our pubkey, but only skip if it's in our local myOffers
+            // (i.e., we created it in this session, not from a previous/deleted identity)
+            log.error("=== Offer from own pubkey: {}, myOffers.size={}, contains={}",
+                     offer.getId().substring(0, 8), myOffers.size(), myOffers.containsKey(offer.getId()));
+
+            // Debug: print all keys in myOffers
+            log.error("=== Keys in myOffers: {}", myOffers.keySet().stream()
+                     .map(id -> id.substring(0, 8))
+                     .collect(java.util.stream.Collectors.joining(", ")));
+
+            // Debug: print offer's Nostr event ID
+            log.error("=== Offer Nostr event ID: {}", offer.getNostrEventId() != null ?
+                     offer.getNostrEventId().substring(0, 8) : "null");
+
+            if (myOffers.containsKey(offer.getId())) {
+                log.error("=== Skipping own offer from marketplace (already in myOffers): {}", offer.getId().substring(0, 8));
+                return;
+            }
+            // If it's from our pubkey but NOT in myOffers, it's from a previous session
+            // or deleted identity - treat it as a marketplace offer
+            log.error("=== Offer from our pubkey but NOT in myOffers (old identity?), adding to marketplace: {}", offer.getId().substring(0, 8));
         }
 
         // Check if offer already exists (avoid duplicates from multiple relays)
@@ -112,19 +131,39 @@ public class TradeOfferManager {
     }
 
     /**
-     * Get all my offers
+     * Get all my offers for the active identity
      */
     public List<TradeOffer> getMyOffers() {
-        return new ArrayList<>(myOffers.values());
+        com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager identityManager =
+            com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager.getInstance();
+        com.sparrowwallet.sparrow.p2p.identity.NostrIdentity activeIdentity = identityManager.getActiveIdentity();
+
+        if (activeIdentity == null) {
+            return new ArrayList<>();
+        }
+
+        String activeIdentityHex = activeIdentity.getHex();
+
+        // Filter offers to only show those created by the active identity
+        return myOffers.values().stream()
+            .filter(offer -> activeIdentityHex.equals(offer.getCreatorHex()))
+            .collect(Collectors.toList());
     }
 
     /**
-     * Get all active marketplace offers
+     * Get all active marketplace offers (excluding my own)
      */
     public List<TradeOffer> getMarketplaceOffers() {
+        com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager identityManager =
+            com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager.getInstance();
+        com.sparrowwallet.sparrow.p2p.identity.NostrIdentity activeIdentity = identityManager.getActiveIdentity();
+
+        String activeIdentityHex = activeIdentity != null ? activeIdentity.getHex() : null;
+
         return marketplaceOffers.values().stream()
             .filter(TradeOffer::isActive)
             .filter(offer -> !offer.isExpired())
+            .filter(offer -> activeIdentityHex == null || !activeIdentityHex.equals(offer.getCreatorHex())) // Exclude my offers
             .sorted(Comparator.comparing(TradeOffer::getPublishedAt).reversed())
             .collect(Collectors.toList());
     }
@@ -148,6 +187,53 @@ public class TradeOfferManager {
             offer = marketplaceOffers.get(offerId);
         }
         return offer;
+    }
+
+    /**
+     * Get offer by Nostr event ID
+     */
+    public TradeOffer getOfferByNostrEventId(String nostrEventId) {
+        // Search in my offers
+        for (TradeOffer offer : myOffers.values()) {
+            if (nostrEventId.equals(offer.getNostrEventId())) {
+                return offer;
+            }
+        }
+
+        // Search in marketplace offers
+        for (TradeOffer offer : marketplaceOffers.values()) {
+            if (nostrEventId.equals(offer.getNostrEventId())) {
+                return offer;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Remove offer by local ID (used for local deletion without Nostr event)
+     */
+    public void removeMyOffer(String offerId) {
+        TradeOffer removed = myOffers.remove(offerId);
+        if (removed != null) {
+            log.info("Removed local offer: {}", offerId);
+            saveMyOffersToDisk();
+            notifyOfferUpdate();
+        }
+    }
+
+    /**
+     * Remove offer by Nostr event ID (used for handling deletion events)
+     */
+    public void removeOfferByNostrEventId(String nostrEventId) {
+        // Remove from my offers
+        myOffers.values().removeIf(offer -> nostrEventId.equals(offer.getNostrEventId()));
+
+        // Remove from marketplace offers
+        marketplaceOffers.values().removeIf(offer -> nostrEventId.equals(offer.getNostrEventId()));
+
+        // Notify listeners
+        notifyOfferUpdate();
     }
 
     /**
@@ -295,9 +381,15 @@ public class TradeOfferManager {
     public void cancelOffer(String offerId) {
         TradeOffer offer = myOffers.get(offerId);
         if (offer != null) {
-            offer.cancel();
+            // Publish cancellation event to Nostr (this will also remove from local storage)
+            com.sparrowwallet.sparrow.p2p.NostrP2PService nostrService =
+                com.sparrowwallet.sparrow.p2p.NostrP2PService.getInstance();
+            if (nostrService != null) {
+                nostrService.cancelOffer(offer);
+            }
 
-            // TODO: Publish cancellation event to Nostr
+            // Also remove from marketplace if present (can happen if we loaded our own offer from Nostr)
+            marketplaceOffers.remove(offerId);
 
             log.info("Cancelled offer: {}", offerId);
         }
@@ -335,19 +427,19 @@ public class TradeOfferManager {
     }
 
     /**
-     * Get count of my active offers
+     * Get count of my active offers for the active identity
      */
     public int getMyActiveOffersCount() {
-        return (int) myOffers.values().stream()
+        return (int) getMyOffers().stream()
             .filter(TradeOffer::isActive)
             .count();
     }
 
     /**
-     * Get count of all my offers
+     * Get count of all my offers for the active identity
      */
     public int getMyOffersCount() {
-        return myOffers.size();
+        return getMyOffers().size();
     }
 
     /**
@@ -484,6 +576,7 @@ public class TradeOfferManager {
                         );
 
                         // Restore state
+                        offer.setId(id);  // Restore original ID from JSON (constructor generates new UUID)
                         if(nostrEventId != null) {
                             offer.setNostrEventId(nostrEventId);
                         }

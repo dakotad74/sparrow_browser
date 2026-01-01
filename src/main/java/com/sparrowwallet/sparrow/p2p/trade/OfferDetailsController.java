@@ -269,7 +269,8 @@ public class OfferDetailsController implements Initializable {
             controller.setPeer(
                 offer.getCreatorHex(),
                 offer.getCreatorDisplayName(),
-                offer.getCreatorNpub()
+                offer.getCreatorNpub(),
+                offer.getId()  // Pass offer ID for conversation context
             );
 
             javafx.scene.Scene scene = new javafx.scene.Scene(root);

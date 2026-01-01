@@ -100,6 +100,9 @@ public class P2PExchangeController implements Initializable {
     @FXML
     private Button manageOffersButton;
 
+    @FXML
+    private Button viewChatsButton;
+
     // Status bar
     @FXML
     private Label statusLabel;
@@ -150,7 +153,26 @@ public class P2PExchangeController implements Initializable {
                 Thread.sleep(2000);
 
                 // Subscribe to offers
+                log.error("=== SUBSCRIBING TO OFFERS ===");
                 nostrP2PService.subscribeToOffers();
+
+                // Subscribe to incoming chat messages
+                log.error("=== SUBSCRIBING TO CHAT MESSAGES ===");
+                com.sparrowwallet.sparrow.p2p.chat.ChatService chatService = com.sparrowwallet.sparrow.p2p.chat.ChatService.getInstance();
+                chatService.subscribeToAllMessages();
+                log.error("=== CHAT SUBSCRIPTION COMPLETED ===");
+
+                // Register listener for identity changes to re-subscribe automatically
+                com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager identityManager =
+                    com.sparrowwallet.sparrow.p2p.identity.NostrIdentityManager.getInstance();
+                identityManager.addIdentityChangeListener((newIdentity, oldIdentity) -> {
+                    Platform.runLater(() -> {
+                        chatService.updateSubscriptionForIdentity(newIdentity, oldIdentity);
+                        // Refresh marketplace to update visible offers
+                        refreshOffers();
+                    });
+                });
+                log.info("Registered identity change listener for chat re-subscription and offer refresh");
 
                 // Update status on JavaFX thread
                 Platform.runLater(this::updateStatusBar);
@@ -319,6 +341,7 @@ public class P2PExchangeController implements Initializable {
 
         createOfferActivityButton.setOnAction(e -> createOffer());
         manageOffersButton.setOnAction(e -> manageOffers());
+        viewChatsButton.setOnAction(e -> viewChats());
 
         // Add initial activity
         activityListView.getItems().add("• Identity created (" + formatTimeAgo(currentIdentity.getCreatedAt()) + ")");
@@ -611,6 +634,38 @@ public class P2PExchangeController implements Initializable {
             Alert error = new Alert(Alert.AlertType.ERROR);
             error.setTitle("Error");
             error.setHeaderText("Failed to Open Manage Offers");
+            error.setContentText(e.getMessage());
+            error.showAndWait();
+        }
+    }
+
+    /**
+     * View chats
+     */
+    private void viewChats() {
+        log.info("Opening View Chats dialog...");
+
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                getClass().getResource("/com/sparrowwallet/sparrow/p2p/chat/chats-list-dialog.fxml")
+            );
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setTitle("My Chats - Sparrow");
+            stage.setScene(new javafx.scene.Scene(loader.load()));
+            stage.initModality(javafx.stage.Modality.NONE);
+            stage.setMinWidth(700);
+            stage.setMinHeight(500);
+
+            com.sparrowwallet.sparrow.p2p.chat.ChatsListController controller = loader.getController();
+            controller.setDialogStage(stage);
+
+            stage.show();
+
+        } catch (Exception e) {
+            log.error("Failed to open View Chats dialog", e);
+            Alert error = new Alert(Alert.AlertType.ERROR);
+            error.setTitle("Error");
+            error.setHeaderText("Failed to Open Chats");
             error.setContentText(e.getMessage());
             error.showAndWait();
         }

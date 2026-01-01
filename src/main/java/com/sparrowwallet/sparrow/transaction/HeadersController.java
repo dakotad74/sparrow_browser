@@ -234,6 +234,14 @@ public class HeadersController extends TransactionFormController implements Init
     private Button signButton;
 
     @FXML
+    private Button muSig2Round1Button;
+
+    @FXML
+    private Button muSig2Round2Button;
+
+    private MuSig2Round1Dialog.MuSig2Round1Data round1Data;
+
+    @FXML
     private HBox broadcastButtonBox;
 
     @FXML
@@ -1099,6 +1107,81 @@ public class HeadersController extends TransactionFormController implements Init
         signDeviceKeystores();
     }
 
+    public void startMuSig2Round1(ActionEvent event) {
+        if(headersForm.getSigningWallet() == null) {
+            showErrorDialog("No Wallet", "Please select a signing wallet first.");
+            return;
+        }
+
+        if(headersForm.getSigningWallet().getPolicyType() != com.sparrowwallet.drongo.policy.PolicyType.MUSIG2) {
+            showErrorDialog("Not a MuSig2 Wallet", "The selected wallet is not a MuSig2 wallet.");
+            return;
+        }
+
+        MuSig2Round1Dialog dialog = new MuSig2Round1Dialog(headersForm.getSigningWallet(), headersForm.getPsbt());
+        dialog.initOwner(muSig2Round1Button.getScene().getWindow());
+        Optional<MuSig2Round1Dialog.MuSig2Round1Data> result = dialog.showAndWait();
+
+        if(result.isPresent()) {
+            round1Data = result.get();
+            // Enable Round 2 button
+            muSig2Round2Button.setVisible(true);
+            muSig2Round2Button.setDisable(false);
+            // Disable Round 1 button
+            muSig2Round1Button.setDisable(true);
+        }
+    }
+
+    public void startMuSig2Round2(ActionEvent event) {
+        if(round1Data == null) {
+            showErrorDialog("Round 1 Not Complete", "Please complete Round 1 (nonce exchange) first.");
+            return;
+        }
+
+        MuSig2Round2Dialog dialog = new MuSig2Round2Dialog(headersForm.getSigningWallet(), headersForm.getPsbt(), round1Data);
+        dialog.initOwner(muSig2Round2Button.getScene().getWindow());
+        Optional<PSBT> result = dialog.showAndWait();
+
+        if(result.isPresent()) {
+            // PSBT was updated with partial signature
+            EventManager.get().post(new PSBTSignedEvent(headersForm.getPsbt(), result.get()));
+        }
+    }
+
+    @Subscribe
+    public void muSig2Round1Complete(MuSig2Round1Event event) {
+        if(headersForm.getPsbt() == event.getPsbt()) {
+            // Round 1 completed through other means, enable Round 2
+            muSig2Round2Button.setVisible(true);
+            muSig2Round2Button.setDisable(false);
+        }
+    }
+
+    @Subscribe
+    public void muSig2Round2Complete(MuSig2Round2Event event) {
+        if(headersForm.getPsbt() == event.getPsbt()) {
+            // Round 2 completed, PSBT has partial signature
+            updateSignedKeystores(headersForm.getSigningWallet());
+            muSig2Round2Button.setDisable(true);
+        }
+    }
+
+    private void updateMuSig2Buttons() {
+        if(headersForm.getSigningWallet() != null &&
+           headersForm.getSigningWallet().getPolicyType() == com.sparrowwallet.drongo.policy.PolicyType.MUSIG2) {
+            muSig2Round1Button.setVisible(true);
+            muSig2Round1Button.setDisable(false);
+            // Reset Round 2 button
+            if(round1Data == null) {
+                muSig2Round2Button.setVisible(false);
+            }
+        } else {
+            muSig2Round1Button.setVisible(false);
+            muSig2Round2Button.setVisible(false);
+            round1Data = null;
+        }
+    }
+
     public void addInputsToPsbt(ActionEvent event) {
         ToggleButton toggleButton = (ToggleButton)event.getSource();
         toggleButton.setSelected(false);
@@ -1879,6 +1962,7 @@ public class HeadersController extends TransactionFormController implements Init
                         signButtonBox.setVisible(true);
                         // Show Add Inputs button for unsigned PSBTs
                         addInputsButton.setVisible(!headersForm.getPsbt().isFinalized());
+                        updateMuSig2Buttons();
                     }
                 } else {
                     if(availableWallets.contains(headersForm.getSigningWallet())) {
@@ -1893,6 +1977,7 @@ public class HeadersController extends TransactionFormController implements Init
                     // Show signButtonBox and Add Inputs button for non-finalized PSBTs
                     signButtonBox.setVisible(true);
                     addInputsButton.setVisible(!headersForm.getPsbt().isFinalized());
+                    updateMuSig2Buttons();
                 }
             } else {
                 if(headersForm.getPsbt().isSigned()) {
@@ -1938,6 +2023,7 @@ public class HeadersController extends TransactionFormController implements Init
                 broadcastButtonBox.setVisible(true);
             } else {
                 signButtonBox.setVisible(true);
+                updateMuSig2Buttons();
             }
         }
     }
