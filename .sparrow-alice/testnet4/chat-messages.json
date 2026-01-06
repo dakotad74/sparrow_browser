@@ -1,0 +1,16 @@
+{
+  "conversations": {
+    "a7716bde-8b89-4db0-99ee-561aea247285": [
+      {
+        "senderHex": "5cdf3ad0dfcd6ca12611807f4cff52c76743aa4840358eb8c3662fbb1bc094ad",
+        "senderName": "ALICE3",
+        "recipientHex": "833e5d676f0b34cef0514ba4b9be23d6c0d585ca7b5a290f1366dd2d6ba428b8",
+        "content": "HOLA BOB",
+        "timestamp": "2025-12-28T21:21:31.922487665",
+        "nostrEventId": "64a3a1996619285f4f0e33c625317e8286284a9f9bb8b261fa84683aed8cd1b9",
+        "isRead": true,
+        "outgoing": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+seed testnet4_1
+1 light 2 below 3 salt 4 fault 5 balcony 6 tell 7 pretty 8 bind 9 adult 10 glass 11 pudding 12 tackle
+
+testnet4_2
+
+1 noodle 2 supreme 3 spice 4 bone 5 sponsor 6 medal 7 drink 8 void 9 hour 10 unlock 11 turn 12 lounge
+
+testnet4_3
+
+1 inhale 2 dignity 3 wine 4 photo 5 elegant 6 volcano 7 festival 8 loop 9 flavor 10 guard 11 roof 12 place

@@ -1,0 +1,16 @@
+{
+  "activeIdentityId": "4f8feec9-4b14-463d-acda-4b52d40590aa",
+  "identities": [
+    {
+      "id": "4f8feec9-4b14-463d-acda-4b52d40590aa",
+      "npub": "npub1gk9yhmcw6757cypvkm8gqr7aju733hqeaptwppmdg27pvlwf5dcsgqpej7",
+      "nsec": "639ba754de81f55ec3fe6bc9231b54b192d3036e1a5c2561a48fcfeab899babf",
+      "hex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+      "displayName": "ALICE4",
+      "type": "PERSISTENT",
+      "isActive": true,
+      "createdAt": "2025-12-28T22:21:58.597405089",
+      "lastUsedAt": "2025-12-28T22:22:01.773587702"
+    }
+  ]
+}

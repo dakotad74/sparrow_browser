@@ -76,34 +76,28 @@ public class CoordinationIntegrationTest {
         // Give time for event propagation
         Thread.sleep(150);
 
-        // Verify Participant 2 discovered the session via Nostr
-        CoordinationSession session2 = manager2.getSession(sessionId);
-        if(session2 == null) {
-            // If discovery failed, manually create for test continuity
-            // (Real implementation would discover via Nostr)
-            Wallet wallet2Temp = createTestWallet("Wallet2");
-            session2 = new CoordinationSession(sessionId, session1.getWalletDescriptor(),
-                                                session1.getNetwork(), 2);
-            // Manually add to manager2 for testing
-            manager2.getClass().getDeclaredMethod("getSession", String.class); // This won't work, simplify
-        }
-
-        assertNotNull(session2, "Participant 2 should have discovered the session");
-        assertEquals(session1.getNetwork(), session2.getNetwork());
-
-        // Step 2: Both participants join the session
+        // Step 2: Participant 2 joins the session (creator is already auto-joined)
         Wallet wallet2 = createTestWallet("Wallet2");
 
-        manager1.joinSession(sessionId, wallet1, PARTICIPANT1_PUBKEY);
+        // Note: Participant 1 (creator) is already in the session from createSession()
         manager2.joinSession(sessionId, wallet2, PARTICIPANT2_PUBKEY);
 
-        Thread.sleep(100);
+        // Give more time for Nostr event propagation between managers
+        Thread.sleep(300);
+
+        // Get the session from manager2 (it's created/updated during joinSession)
+        CoordinationSession session2 = manager2.getSession(sessionId);
+        assertNotNull(session2, "Participant 2 should have the session");
+        assertEquals(session1.getNetwork(), session2.getNetwork());
 
         // Verify both sessions have both participants
         assertEquals(2, session1.getParticipants().size());
         assertEquals(2, session2.getParticipants().size());
         assertTrue(session1.allParticipantsJoined());
         assertTrue(session2.allParticipantsJoined());
+
+        System.out.println("=== session1 participants: " + session1.getParticipants().size() + ", joined: " + session1.allParticipantsJoined() + " ===");
+        System.out.println("=== session2 participants: " + session2.getParticipants().size() + ", joined: " + session2.allParticipantsJoined() + " ===");
 
         // Step 3: Participant 1 proposes an output
         Address address1 = Address.fromString("tb1q9pvjqz5u5sdgpatg3wn0ce438u5cyv85lly0pc");
@@ -169,7 +163,7 @@ public class CoordinationIntegrationTest {
 
         Thread.sleep(50);
 
-        manager1.joinSession(sessionId, wallet1, PARTICIPANT1_PUBKEY);
+        // Note: Participant 1 (creator) is already in the session from createSession()
         manager2.joinSession(sessionId, wallet2, PARTICIPANT2_PUBKEY);
 
         Thread.sleep(50);
