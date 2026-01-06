@@ -2033,15 +2033,46 @@ public class HeadersController extends TransactionFormController implements Init
 
     @Subscribe
     public void psbtCombined(PSBTCombinedEvent event) {
+        log.error("=== psbtCombined event received ===");
         if(event.getPsbt().equals(headersForm.getPsbt())) {
+            log.error("=== PSBT matches headersForm, isSigned={}, isFinalized={} ===",
+                headersForm.getPsbt().isSigned(), headersForm.getPsbt().isFinalized());
+
+            // MuSig2: Check if PSBT is now finalized after combination (has finalScriptWitness)
+            // This needs to happen regardless of whether signingWallet exists
+            if(headersForm.getPsbt().isSigned() && headersForm.getPsbt().isFinalized()) {
+                log.error("=== PSBT is signed AND finalized (MuSig2 complete), dispatching PSBTFinalizedEvent ===");
+                if(headersForm.getSigningWallet() != null) {
+                    updateSignedKeystores(headersForm.getSigningWallet());
+                }
+                EventManager.get().post(new PSBTFinalizedEvent(headersForm.getPsbt()));
+                return;
+            }
+
             if(headersForm.getSigningWallet() != null) {
+                log.error("=== signingWallet is NOT null, updating keystores ===");
                 updateSignedKeystores(headersForm.getSigningWallet());
             } else if(headersForm.getPsbt().isSigned()) {
+                log.error("=== PSBT is signed, creating FinalizingPSBTWallet ===");
                 Wallet signedWallet = new FinalizingPSBTWallet(headersForm.getPsbt());
                 headersForm.setSigningWallet(signedWallet);
-                finalizePSBT();
+
+                // MuSig2: If PSBT is already finalized (combined signature created finalScriptWitness),
+                // dispatch PSBTFinalizedEvent directly. Otherwise, call finalizePSBT() to finalize.
+                if(headersForm.getPsbt().isFinalized()) {
+                    log.error("=== PSBT already finalized, dispatching PSBTFinalizedEvent ===");
+                    EventManager.get().post(new PSBTFinalizedEvent(headersForm.getPsbt()));
+                } else {
+                    log.error("=== PSBT not finalized, calling finalizePSBT() ===");
+                    finalizePSBT();
+                }
+
                 EventManager.get().post(new FinalizeTransactionEvent(headersForm.getPsbt(), signedWallet));
+            } else {
+                log.error("=== PSBT is NOT signed ===");
             }
+        } else {
+            log.error("=== PSBT does NOT match headersForm ===");
         }
     }
 

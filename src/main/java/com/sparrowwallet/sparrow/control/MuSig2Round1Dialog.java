@@ -453,16 +453,29 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
             // Changed to support multiple nonces per input (one from each signer)
             Map<Integer, List<MuSig2.MuSig2Nonce>> allNonces = new HashMap<>();
 
+            log.error("=== ================================================== ===");
+            log.error("=== getRound1Data() for wallet: {} ===", wallet.getName());
+            log.error("=== ================================================== ===");
+
             // Add my nonces first
             for(Map.Entry<Integer, CompleteNonce> entry : myCompleteNonces.entrySet()) {
                 int inputIndex = entry.getKey();
                 List<MuSig2.MuSig2Nonce> nonceList = new ArrayList<>();
-                nonceList.add(entry.getValue().getPublicNonce());
+                MuSig2.MuSig2Nonce myNonce = entry.getValue().getPublicNonce();
+                nonceList.add(myNonce);
                 allNonces.put(inputIndex, nonceList);
+
+                // Log my nonce
+                log.error("=== MY NONCE for input {}: ===", inputIndex);
+                log.error("===   R1: {} ===", bytesToHex(myNonce.getPublicKey1()));
+                log.error("===   R2: {} ===", bytesToHex(myNonce.getPublicKey2()));
             }
 
             // Parse other nonces from text area and ADD to the list (don't replace)
             String text = otherNoncesArea.getText().trim();
+            log.error("=== OTHER NONCES text area content (length {}): ===", text.length());
+            log.error("=== {} ===", text.length() > 100 ? text.substring(0, 100) + "..." : text);
+
             String[] lines = text.split("\n");
             for(String line : lines) {
                 String[] parts = line.trim().split(":");
@@ -479,9 +492,26 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
                         MuSig2.MuSig2Nonce nonce = new MuSig2.MuSig2Nonce(pubKey1, pubKey2);
                         // Add to existing list instead of replacing
                         allNonces.computeIfAbsent(inputIndex, k -> new ArrayList<>()).add(nonce);
+
+                        // Log other nonce
+                        log.error("=== OTHER NONCE for input {}: ===", inputIndex);
+                        log.error("===   R1: {} ===", bytesToHex(pubKey1));
+                        log.error("===   R2: {} ===", bytesToHex(pubKey2));
                     }
                 }
             }
+
+            // Log final combined nonces
+            log.error("=== FINAL COMBINED NONCES: ===");
+            for(Map.Entry<Integer, List<MuSig2.MuSig2Nonce>> entry : allNonces.entrySet()) {
+                log.error("=== Input {}: {} nonces ===", entry.getKey(), entry.getValue().size());
+                for(int i = 0; i < entry.getValue().size(); i++) {
+                    MuSig2.MuSig2Nonce n = entry.getValue().get(i);
+                    log.error("===   Nonce[{}] R1: {} ===", i, bytesToHex(n.getPublicKey1()));
+                    log.error("===   Nonce[{}] R2: {} ===", i, bytesToHex(n.getPublicKey2()));
+                }
+            }
+            log.error("=== ================================================== ===");
 
             return new MuSig2Round1Data(allNonces, messages, inputPublicKeys, myCompleteNonces);
 

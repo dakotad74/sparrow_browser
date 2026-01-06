@@ -292,6 +292,24 @@ public class MuSig2Round2Dialog extends Dialog<PSBT> {
                     });
                     log.error("=== Sorted {} nonces for MuSig2 Round 2 ===", publicNonces.size());
 
+                    // EXTENSIVE LOGGING: Show all nonces for debugging nonce exchange issues
+                    log.error("=== ================================================== ===");
+                    log.error("=== NONCE DEBUGGING for wallet: {} ===", signingWallet.getName());
+                    log.error("=== ================================================== ===");
+                    for(int ni = 0; ni < publicNonces.size(); ni++) {
+                        MuSig2.MuSig2Nonce nonce = publicNonces.get(ni);
+                        byte[] pk1 = nonce.getPublicKey1();
+                        byte[] pk2 = nonce.getPublicKey2();
+                        log.error("=== Nonce[{}] R1 (first 16 bytes): {} ===", ni,
+                            com.sparrowwallet.drongo.Utils.bytesToHex(pk1).substring(0, Math.min(32, pk1.length * 2)));
+                        log.error("=== Nonce[{}] R2 (first 16 bytes): {} ===", ni,
+                            com.sparrowwallet.drongo.Utils.bytesToHex(pk2).substring(0, Math.min(32, pk2.length * 2)));
+                        // Show full nonce for comparison
+                        log.error("=== Nonce[{}] FULL R1: {} ===", ni, com.sparrowwallet.drongo.Utils.bytesToHex(pk1));
+                        log.error("=== Nonce[{}] FULL R2: {} ===", ni, com.sparrowwallet.drongo.Utils.bytesToHex(pk2));
+                    }
+                    log.error("=== ================================================== ===");
+
                     // Get message (sighash) - use wrap() to create Sha256Hash from bytes
                     byte[] messageBytes = round1Data.getMessages().get(inputCount[0]);
                     Sha256Hash message = Sha256Hash.wrap(messageBytes);
