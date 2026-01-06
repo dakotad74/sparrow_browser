@@ -68,10 +68,22 @@ public interface KeystoreDao {
                 }
             }
 
+            // BIP-327: For MuSig2 wallets, always save the extended public key and master fingerprint
+            // even when we have the private key, because the musig() descriptor requires
+            // individual xpubs with their key origins to be reconstructed
+            boolean isMusig2 = wallet.getPolicyType() == com.sparrowwallet.drongo.policy.PolicyType.MUSIG2;
+
+            // DEBUG: Log what's being saved
+            System.err.println("DEBUG KeystoreDao.addKeystores: wallet=" + wallet.getName() + " policyType=" + wallet.getPolicyType() + " isMusig2=" + isMusig2);
+            System.err.println("  Keystore " + i + ": hasMasterPrivateKey=" + keystore.hasMasterPrivateKey());
+            System.err.println("  KeyDerivation masterFingerprint=" + keystore.getKeyDerivation().getMasterFingerprint());
+            System.err.println("  KeyDerivation derivationPath=" + keystore.getKeyDerivation().getDerivationPath());
+            System.err.println("  ExtendedPublicKey=" + (keystore.getExtendedPublicKey() != null ? keystore.getExtendedPublicKey().toString().substring(0, 20) + "..." : "NULL"));
+
             long id = insert(truncate(keystore.getLabel()), keystore.getSource().ordinal(), keystore.getWalletModel().ordinal(),
-                    keystore.hasMasterPrivateKey() || wallet.isBip47() ? null : keystore.getKeyDerivation().getMasterFingerprint(),
+                    (keystore.hasMasterPrivateKey() || wallet.isBip47()) && !isMusig2 ? null : keystore.getKeyDerivation().getMasterFingerprint(),
                     keystore.getKeyDerivation().getDerivationPath(),
-                    keystore.hasMasterPrivateKey() || wallet.isBip47() ? null : keystore.getExtendedPublicKey().toString(),
+                    (keystore.hasMasterPrivateKey() || wallet.isBip47()) && !isMusig2 ? null : keystore.getExtendedPublicKey().toString(),
                     keystore.getExternalPaymentCode() == null ? null : keystore.getExternalPaymentCode().toString(),
                     keystore.getDeviceRegistration(),
                     keystore.getMasterPrivateExtendedKey() == null ? null : keystore.getMasterPrivateExtendedKey().getId(),

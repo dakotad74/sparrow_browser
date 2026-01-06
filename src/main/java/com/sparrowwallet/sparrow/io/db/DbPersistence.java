@@ -240,6 +240,10 @@ public class DbPersistence implements Persistence {
                                 purposeNode.setId(purposeNodeId);
                             }
 
+                            // Ensure address is generated and cached before saving (important for MuSig2)
+                            if(addressNode.getAddress() == null) {
+                                wallet.getAddress(addressNode);
+                            }
                             long nodeId = walletNodeDao.insertWalletNode(addressNode.getDerivationPath(), addressNode.getLabel(), wallet.getId(), purposeNode.getId(), addressNode.getAddressData());
                             addressNode.setId(nodeId);
                         } else if(addressNode.getAddress() != null) {
@@ -299,6 +303,10 @@ public class DbPersistence implements Persistence {
                                     purposeNode.setId(purposeNodeId);
                                 }
 
+                                // Ensure address is generated and cached before saving (important for MuSig2)
+                                if(addressNode.getAddress() == null) {
+                                    wallet.getAddress(addressNode);
+                                }
                                 long nodeId = walletNodeDao.insertWalletNode(addressNode.getDerivationPath(), addressNode.getLabel(), wallet.getId(), purposeNode.getId(), addressNode.getAddressData());
                                 addressNode.setId(nodeId);
                             } else if(addressNode.getAddress() != null) {

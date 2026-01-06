@@ -2,20 +2,26 @@ package com.sparrowwallet.sparrow.control;
 
 import com.google.common.eventbus.Subscribe;
 import com.sparrowwallet.drongo.KeyPurpose;
+import com.sparrowwallet.drongo.SecureString;
 import com.sparrowwallet.drongo.crypto.ECKey;
 import com.sparrowwallet.drongo.crypto.musig2.MuSig2;
 import com.sparrowwallet.drongo.crypto.musig2.MuSig2.CompleteNonce;
+import com.sparrowwallet.drongo.crypto.musig2.MuSig2Core;
 import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.psbt.PSBTInput;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.SigHash;
+import com.sparrowwallet.drongo.KeyDerivation;
 import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.drongo.wallet.WalletNode;
+import com.sparrowwallet.drongo.ExtendedKey;
+import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.EventManager;
 import com.sparrowwallet.sparrow.event.MuSig2Round1Event;
 import com.sparrowwallet.sparrow.event.PSBTSignedEvent;
+import com.sparrowwallet.sparrow.io.Storage;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
@@ -28,9 +34,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Dialog for MuSig2 Round 1: Nonce generation and exchange.
@@ -55,6 +63,7 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
     private Button continueButton;
 
     public MuSig2Round1Dialog(Wallet wallet, PSBT psbt) {
+        log.error("=== MuSig2Round1Dialog CONSTRUCTOR called for wallet: " + wallet.getName() + " ===");
         this.wallet = wallet;
         this.psbt = psbt;
         this.myCompleteNonces = new HashMap<>();
@@ -79,7 +88,8 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
             "MuSig2 requires two rounds of signing. In Round 1, each signer generates a public nonce.\n\n" +
             "1. Click 'Generate My Nonces' to create your nonces\n" +
             "2. Share your nonces with other signers (via QR code, text, or file)\n" +
-            "3. Enter nonces from other signers (one per line: input_index,R_hex)\n" +
+            "3. Enter nonces from other signers (one per line: input_index:nonce_hex)\n" +
+            "   Nonce format: 132 hex characters (66 bytes = pubKey1 + pubKey2)\n" +
             "4. Click 'Continue to Round 2' when all nonces are collected"
         );
         instructionsLabel.setWrapText(true);
@@ -88,7 +98,10 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
         // Generate button
         Button generateButton = new Button("Generate My Nonces");
         generateButton.setMaxWidth(Double.MAX_VALUE);
-        generateButton.setOnAction(e -> generateMyNonces());
+        generateButton.setOnAction(e -> {
+            log.error("=== Generate My Nonces BUTTON CLICKED ===");
+            generateMyNonces();
+        });
         content.getChildren().add(generateButton);
 
         // My nonces display
@@ -132,37 +145,184 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
     }
 
     private void generateMyNonces() {
+        log.error("=== generateMyNonces called, wallet: " + wallet.getName() + ", encrypted: " + wallet.isEncrypted() + " ===");
         try {
             // Check if wallet is encrypted
             if(wallet.isEncrypted()) {
-                statusLabel.setText("Wallet is encrypted. Please decrypt wallet first.");
+                // Wallet is encrypted - need to decrypt first
+                log.info("Wallet is encrypted, prompting for password...");
+                statusLabel.setText("Wallet is encrypted. Please enter password to decrypt.");
+                statusLabel.setStyle("-fx-text-fill: #f39c12;");
+
+                // Prompt for password and decrypt wallet
+                decryptWalletAndGenerateNonces();
+                return;
+            }
+
+            // Wallet is not encrypted, proceed directly
+            generateNoncesWithWallet(wallet);
+
+        } catch(Exception e) {
+            log.error("Error generating MuSig2 nonces", e);
+            statusLabel.setText("Error: " + e.getMessage());
+            statusLabel.setStyle("-fx-text-fill: #c0392b;");
+        }
+    }
+
+    private void decryptWalletAndGenerateNonces() {
+        try {
+            Storage storage = AppServices.get().getOpenWallets().get(wallet);
+
+            // Create password dialog
+            WalletPasswordDialog dlg = new WalletPasswordDialog(wallet.getMasterName(), WalletPasswordDialog.PasswordRequirement.LOAD);
+            dlg.initOwner(myNoncesArea.getScene().getWindow());
+            Optional<SecureString> password = dlg.showAndWait();
+
+            if(password.isEmpty()) {
+                statusLabel.setText("Password entry cancelled.");
                 statusLabel.setStyle("-fx-text-fill: #c0392b;");
                 return;
             }
 
-            // Get all public keys for MuSig2
-            List<ECKey> publicKeys = new ArrayList<>();
-            for(Keystore keystore : wallet.getKeystores()) {
-                if(keystore.getExtendedPublicKey() != null) {
-                    ECKey pubKey = keystore.getExtendedPublicKey().getKey();
-                    publicKeys.add(pubKey);
+            SecureString passwordEntry = password.get();
+            if(passwordEntry == null || passwordEntry.isEmpty()) {
+                statusLabel.setText("Password is required.");
+                statusLabel.setStyle("-fx-text-fill: #c0392b;");
+                return;
+            }
+
+            // Decrypt wallet using background service
+            Storage.DecryptWalletService decryptWalletService =
+                new Storage.DecryptWalletService(
+                    wallet.copy(),
+                    passwordEntry
+                );
+
+            decryptWalletService.setOnSucceeded(workerStateEvent -> {
+                try {
+                    Wallet decryptedWallet = decryptWalletService.getValue();
+                    log.info("Wallet decrypted successfully");
+
+                    // Generate nonces with decrypted wallet
+                    generateNoncesWithWallet(decryptedWallet);
+
+                    // IMPORTANT: Clear private keys from decrypted wallet after use
+                    decryptedWallet.clearPrivate();
+                    log.info("Cleared private keys from decrypted wallet");
+
+                } catch(Exception e) {
+                    log.error("Error generating nonces with decrypted wallet", e);
+                    Platform.runLater(() -> {
+                        statusLabel.setText("Error: " + e.getMessage());
+                        statusLabel.setStyle("-fx-text-fill: #c0392b;");
+                    });
+                }
+            });
+
+            decryptWalletService.setOnFailed(workerStateEvent -> {
+                log.error("Failed to decrypt wallet", decryptWalletService.getException());
+                Platform.runLater(() -> {
+                    statusLabel.setText("Decryption failed: " + decryptWalletService.getException().getMessage());
+                    statusLabel.setStyle("-fx-text-fill: #c0392b;");
+                });
+            });
+
+            // Start decryption in background
+            EventManager.get().post(
+                new com.sparrowwallet.sparrow.event.StorageEvent(
+                    storage.getWalletId(wallet),
+                    com.sparrowwallet.sparrow.event.TimedEvent.Action.START,
+                    "Decrypting wallet..."
+                )
+            );
+            decryptWalletService.start();
+
+        } catch(Exception e) {
+            log.error("Error in decryptWalletAndGenerateNonces", e);
+            Platform.runLater(() -> {
+                statusLabel.setText("Error: " + e.getMessage());
+                statusLabel.setStyle("-fx-text-fill: #c0392b;");
+            });
+        }
+    }
+
+    private void generateNoncesWithWallet(Wallet signingWallet) {
+        log.error("=== generateNoncesWithWallet called for wallet: " + signingWallet.getName() + " ===");
+
+        // Get signing keystores (with fallback for MuSig2) - ONCE for the whole method
+        Collection<Keystore> signingKeystores = signingWallet.getSigningKeystores(psbt);
+        if(signingKeystores.isEmpty() && signingWallet.getPolicyType() == PolicyType.MUSIG2) {
+            log.error("getSigningKeystores empty, falling back to keystores with private keys");
+            for(Keystore k : signingWallet.getKeystores()) {
+                if(k.hasPrivateKey()) {
+                    signingKeystores.add(k);
                 }
             }
+        }
 
-            if(publicKeys.isEmpty()) {
-                statusLabel.setText("Error: No public keys found in wallet");
-                statusLabel.setStyle("-fx-text-fill: #c0392b;");
-                return;
-            }
+        if(signingKeystores.isEmpty()) {
+            statusLabel.setText("Error: No signing keystores found");
+            statusLabel.setStyle("-fx-text-fill: #c0392b;");
+            return;
+        }
 
+        try {
             // Generate nonces for each input
             StringBuilder nonceDisplay = new StringBuilder();
             int inputCount = 0;
 
-            Map<PSBTInput, WalletNode> signingNodes = wallet.getSigningNodes(psbt);
+            Map<PSBTInput, WalletNode> signingNodes = signingWallet.getSigningNodes(psbt);
+            log.error("Signing nodes found: " + signingNodes.size());
+            if(signingNodes.isEmpty()) {
+                log.error("No signing nodes found for PSBT!");
+                statusLabel.setText("Error: No signing nodes found - check wallet has funds");
+                statusLabel.setStyle("-fx-text-fill: #c0392b;");
+                return;
+            }
 
             for(Map.Entry<PSBTInput, WalletNode> inputEntry : signingNodes.entrySet()) {
                 PSBTInput input = inputEntry.getKey();
+                WalletNode walletNode = inputEntry.getValue();
+
+                // Get all public keys for MuSig2 - these are the DERIVED keys for this input
+                // IMPORTANT: Use ALL keystores from the wallet, not just those with private keys
+                // This is because MuSig2 needs public keys of ALL signers, not just the current signer
+                List<ECKey> publicKeys = new ArrayList<>();
+
+                // Derive public keys for this specific input (walletNode) from ALL wallet keystores
+                for(Keystore keystore : signingWallet.getKeystores()) {
+                    try {
+                        ECKey derivedKey = null;
+                        if(keystore.hasPrivateKey()) {
+                            // For keystores with private key, derive normally
+                            derivedKey = keystore.getKey(walletNode);
+                        } else {
+                            // For watch-only keystores, use getPubKey which derives from extended public key
+                            derivedKey = keystore.getPubKey(walletNode);
+                        }
+
+                        if(derivedKey != null) {
+                            // Get the public key of the derived key
+                            ECKey pubKey = ECKey.fromPublicOnly(derivedKey.getPubKey());
+                            publicKeys.add(pubKey);
+                            log.error("Added derived public key for keystore: " + keystore.getLabel());
+                        }
+                    } catch(Exception e) {
+                        log.error("Could not derive public key for keystore " + keystore.getLabel() + ": " + e.getMessage());
+                    }
+                }
+
+                if(publicKeys.isEmpty()) {
+                    log.error("No public keys found for input " + inputCount);
+                    inputCount++;
+                    continue;
+                }
+
+                // CRITICAL: Sort public keys before MuSig2 operations
+                // BIP-327 requires keys to be sorted lexicographically to ensure
+                // all signers use the same key order regardless of wallet configuration
+                MuSig2Core.sortPublicKeys(publicKeys);
+                log.info("Public keys sorted for MuSig2: " + publicKeys.size() + " keys");
 
                 // Get sighash for this input
                 // For Taproot MuSig2, we need the taproot signature hash
@@ -183,8 +343,44 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
                     Sha256Hash message = (Sha256Hash)method.invoke(input, signingScript, sigHashType);
                     byte[] sigHash = message.getBytes();
 
-                    // Get first private key (simplified - in real scenario, would get key for specific input)
-                    ECKey privKey = wallet.getKeystores().get(0).getExtendedPublicKey().getKey();
+                    // Get private key for this specific wallet node
+                    log.error("Wallet keystores: " + signingWallet.getKeystores().size());
+                    for(Keystore k : signingWallet.getKeystores()) {
+                        log.error("  Keystore: " + k.getLabel() + " xpub: " + k.getExtendedPublicKey());
+                    }
+                    log.error("PSBT xpubs: " + psbt.getExtendedPublicKeys().size());
+                    for(Map.Entry<ExtendedKey, KeyDerivation> e : psbt.getExtendedPublicKeys().entrySet()) {
+                        log.error("  PSBT xpub: " + e.getKey() + " der: " + e.getValue());
+                    }
+                    log.error("PSBT inputs: " + psbt.getPsbtInputs().size());
+                    for(PSBTInput inp : psbt.getPsbtInputs()) {
+                        log.error("  Input derived keys: " + inp.getDerivedPublicKeys().size());
+                        for(Map.Entry<ECKey, KeyDerivation> e : inp.getDerivedPublicKeys().entrySet()) {
+                            log.error("    Derived: " + e.getKey() + " der: " + e.getValue());
+                        }
+                    }
+
+                    // Get the first signing keystore's private key for this wallet node
+                    // Use the signingKeystores obtained at the beginning of the method
+                    ECKey privKey = null;
+                    for(Keystore signingKeystore : signingKeystores) {
+                        try {
+                            privKey = signingKeystore.getKey(walletNode);
+                            if(privKey != null && privKey.hasPrivKey()) {
+                                log.info("Obtained private key from keystore: " + signingKeystore.getLabel());
+                                break;
+                            }
+                        } catch(Exception e) {
+                            log.debug("Could not get key from keystore " + signingKeystore.getLabel() + ": " + e.getMessage());
+                        }
+                    }
+
+                    if(privKey == null || !privKey.hasPrivKey()) {
+                        log.error("Could not obtain private key for wallet node");
+                        statusLabel.setText("Error: Could not obtain private key for signing");
+                        statusLabel.setStyle("-fx-text-fill: #c0392b;");
+                        return;
+                    }
 
                     // Generate Round 1 nonce using MuSig2 API
                     CompleteNonce completeNonce = MuSig2.generateRound1Nonce(privKey, publicKeys, message);
@@ -193,9 +389,14 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
                     messages.put(inputCount, sigHash);
                     inputPublicKeys.put(inputCount, publicKeys);
 
-                    // Display nonce R value (use publicKey1 which is the first nonce component)
-                    // For simplicity, we'll display the first 32 bytes (publicKey1)
-                    String nonceHex = bytesToHex(completeNonce.getPublicNonce().getPublicKey1());
+                    // Display nonce as combined pubKey1 + pubKey2 (66 bytes total = 33 + 33 compressed points)
+                    // This allows proper reconstruction in Round 2
+                    byte[] pubKey1 = completeNonce.getPublicNonce().getPublicKey1();
+                    byte[] pubKey2 = completeNonce.getPublicNonce().getPublicKey2();
+                    byte[] combined = new byte[66];
+                    System.arraycopy(pubKey1, 0, combined, 0, 33);
+                    System.arraycopy(pubKey2, 0, combined, 33, 33);
+                    String nonceHex = bytesToHex(combined);
                     nonceDisplay.append(inputCount).append(":").append(nonceHex).append("\n");
 
                     inputCount++;
@@ -215,7 +416,7 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
             });
 
         } catch(Exception e) {
-            log.error("Error generating MuSig2 nonces", e);
+            log.error("Error in generateNoncesWithWallet", e);
             statusLabel.setText("Error: " + e.getMessage());
             statusLabel.setStyle("-fx-text-fill: #c0392b;");
         }
@@ -224,15 +425,21 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
     private boolean hasRequiredNonces() {
         // Check if user has entered nonces from other signers
         String text = otherNoncesArea.getText().trim();
+        log.error("hasRequiredNonces called, text length: " + text.length() + ", empty: " + text.isEmpty());
         if(text.isEmpty()) {
             return false;
         }
 
-        // Validate format: input_index:R_hex (66 hex chars = 33 bytes compressed)
+        // Validate format: input_index:nonce_hex (132 hex chars = 66 bytes = pubKey1 + pubKey2, both compressed)
         String[] lines = text.split("\n");
+        log.error("Lines count: " + lines.length);
         for(String line : lines) {
-            if(!line.trim().matches("^\\d+:[0-9a-fA-F]{66}$")) {
-                statusLabel.setText("Invalid nonce format. Use: input_index:R_hex (66 hex chars)");
+            String trimmed = line.trim();
+            log.error("Checking line: '" + trimmed + "', length: " + trimmed.length());
+            boolean matches = trimmed.matches("^\\d+:[0-9a-fA-F]{132}$");
+            log.error("Matches regex: " + matches);
+            if(!matches) {
+                statusLabel.setText("Invalid nonce format. Use: input_index:nonce_hex (132 hex chars)");
                 statusLabel.setStyle("-fx-text-fill: #c0392b;");
                 return false;
             }
@@ -243,24 +450,36 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
 
     private MuSig2Round1Data getRound1Data() {
         try {
-            Map<Integer, MuSig2.MuSig2Nonce> allNonces = new HashMap<>();
+            // Changed to support multiple nonces per input (one from each signer)
+            Map<Integer, List<MuSig2.MuSig2Nonce>> allNonces = new HashMap<>();
 
-            // Add my nonces
+            // Add my nonces first
             for(Map.Entry<Integer, CompleteNonce> entry : myCompleteNonces.entrySet()) {
-                allNonces.put(entry.getKey(), entry.getValue().getPublicNonce());
+                int inputIndex = entry.getKey();
+                List<MuSig2.MuSig2Nonce> nonceList = new ArrayList<>();
+                nonceList.add(entry.getValue().getPublicNonce());
+                allNonces.put(inputIndex, nonceList);
             }
 
-            // Parse other nonces from text area
+            // Parse other nonces from text area and ADD to the list (don't replace)
             String text = otherNoncesArea.getText().trim();
             String[] lines = text.split("\n");
             for(String line : lines) {
                 String[] parts = line.trim().split(":");
                 if(parts.length == 2) {
                     int inputIndex = Integer.parseInt(parts[0]);
-                    byte[] R = hexToBytes(parts[1]);
-                    // Create MuSig2Nonce with R and empty second nonce (will be combined)
-                    MuSig2.MuSig2Nonce nonce = new MuSig2.MuSig2Nonce(R, new byte[32]);
-                    allNonces.put(inputIndex, nonce);
+                    byte[] combined = hexToBytes(parts[1]); // 66 bytes = pubKey1 (33) + pubKey2 (33)
+                    if(combined.length == 66) {
+                        // Split into pubKey1 and pubKey2 (33 bytes each, compressed points)
+                        byte[] pubKey1 = new byte[33];
+                        byte[] pubKey2 = new byte[33];
+                        System.arraycopy(combined, 0, pubKey1, 0, 33);
+                        System.arraycopy(combined, 33, pubKey2, 0, 33);
+                        // Create MuSig2Nonce with both components
+                        MuSig2.MuSig2Nonce nonce = new MuSig2.MuSig2Nonce(pubKey1, pubKey2);
+                        // Add to existing list instead of replacing
+                        allNonces.computeIfAbsent(inputIndex, k -> new ArrayList<>()).add(nonce);
+                    }
                 }
             }
 
@@ -304,22 +523,23 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
      * Data class containing the results of Round 1
      */
     public static class MuSig2Round1Data {
-        private final Map<Integer, MuSig2.MuSig2Nonce> allPublicNonces;
+        // Changed to support multiple nonces per input (one from each signer)
+        private final Map<Integer, List<MuSig2.MuSig2Nonce>> allPublicNonces;
         private final Map<Integer, byte[]> messages;
         private final Map<Integer, List<ECKey>> inputPublicKeys;
         private final Map<Integer, CompleteNonce> myCompleteNonces;
 
-        public MuSig2Round1Data(Map<Integer, MuSig2.MuSig2Nonce> allPublicNonces,
+        public MuSig2Round1Data(Map<Integer, List<MuSig2.MuSig2Nonce>> allPublicNonces,
                                   Map<Integer, byte[]> messages,
                                   Map<Integer, List<ECKey>> inputPublicKeys,
                                   Map<Integer, CompleteNonce> myCompleteNonces) {
-            this.allPublicNonces = allPublicNonces;
+            this.allPublicNonces = allPublicNonces != null ? allPublicNonces : new HashMap<>();
             this.messages = messages;
             this.inputPublicKeys = inputPublicKeys;
             this.myCompleteNonces = myCompleteNonces != null ? myCompleteNonces : new HashMap<>();
         }
 
-        public Map<Integer, MuSig2.MuSig2Nonce> getAllPublicNonces() {
+        public Map<Integer, List<MuSig2.MuSig2Nonce>> getAllPublicNonces() {
             return allPublicNonces;
         }
 

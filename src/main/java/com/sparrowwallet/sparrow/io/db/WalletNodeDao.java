@@ -67,6 +67,10 @@ public interface WalletNodeDao {
             addTransactionOutputs(purposeNode);
             List<WalletNode> childNodes = new ArrayList<>(purposeNode.getChildren());
             for(WalletNode addressNode : childNodes) {
+                // Ensure address is generated and cached before saving (important for MuSig2)
+                if(addressNode.getAddress() == null) {
+                    wallet.getAddress(addressNode);
+                }
                 long addressNodeId = insertWalletNode(addressNode.getDerivationPath(), truncate(addressNode.getLabel()), wallet.getId(), purposeNodeId, addressNode.getAddressData());
                 addressNode.setId(addressNodeId);
                 addTransactionOutputs(addressNode);

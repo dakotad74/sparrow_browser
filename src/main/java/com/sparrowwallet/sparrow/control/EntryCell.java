@@ -252,7 +252,9 @@ public class EntryCell extends TreeTableCell<Entry, Entry> implements Confirmati
             TransactionOutput changeOutput = new TransactionOutput(new Transaction(), 1L, transactionEntry.getWallet().getFreshNode(KeyPurpose.CHANGE).getOutputScript());
             vSize += changeOutput.getLength();
         }
-        double inputSize = tx.getInputs().get(0).getLength() + (tx.getInputs().get(0).hasWitness() ? (double)tx.getInputs().get(0).getWitness().getLength() / Transaction.WITNESS_SCALE_FACTOR : 0);
+        TransactionInput firstInput = tx.getInputs().get(0);
+        double witnessSize = (firstInput.getWitness() != null) ? (double)firstInput.getWitness().getLength() / Transaction.WITNESS_SCALE_FACTOR : 0;
+        double inputSize = firstInput.getLength() + witnessSize;
         List<TxoFilter> txoFilters = List.of(new ExcludeTxoFilter(utxos), new SpentTxoFilter(blockTransaction.getHash()), new FrozenTxoFilter(), new CoinbaseTxoFilter(transactionEntry.getWallet()));
         double feeRate = blockTransaction.getFeeRate() == null ? AppServices.getMinimumRelayFeeRate() : blockTransaction.getFeeRate();
         List<OutputGroup> outputGroups = transactionEntry.getWallet().getGroupedUtxos(txoFilters, feeRate, AppServices.getMinimumRelayFeeRate(), Config.get().isGroupByAddress())

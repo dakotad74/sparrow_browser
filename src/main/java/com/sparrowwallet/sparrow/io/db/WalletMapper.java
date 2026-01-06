@@ -19,12 +19,19 @@ public class WalletMapper implements RowMapper<Wallet> {
         wallet.setId(rs.getLong("wallet.id"));
         wallet.setLabel(rs.getString("wallet.label"));
         wallet.setNetwork(Network.values()[rs.getInt("wallet.network")]);
-        wallet.setPolicyType(PolicyType.values()[rs.getInt("wallet.policyType")]);
+
+        int policyTypeOrdinal = rs.getInt("wallet.policyType");
+        PolicyType policyType = PolicyType.values()[policyTypeOrdinal];
+        System.err.println("DEBUG WalletMapper: Loading wallet " + rs.getString("wallet.name") + " with policyTypeOrdinal=" + policyTypeOrdinal + " -> " + policyType);
+        wallet.setPolicyType(policyType);
         wallet.setScriptType(ScriptType.values()[rs.getInt("wallet.scriptType")]);
 
-        Policy policy = new Policy(rs.getString("policy.name"), new Miniscript(rs.getString("policy.script")));
+        String policyScript = rs.getString("policy.script");
+        Policy policy = new Policy(rs.getString("policy.name"), new Miniscript(policyScript));
         policy.setId(rs.getLong("policy.id"));
         wallet.setDefaultPolicy(policy);
+
+        System.err.println("DEBUG WalletMapper: After load - wallet.policyType=" + wallet.getPolicyType() + ", policy.numSigs=" + wallet.getDefaultPolicy().getNumSignaturesRequired());
 
         int storedBlockHeight = rs.getInt("wallet.storedBlockHeight");
         wallet.setStoredBlockHeight(rs.wasNull() ? null : storedBlockHeight);

@@ -640,7 +640,11 @@ public class AppController implements Initializable {
                 byte[] bytes = Files.readAllBytes(file.toPath());
                 String name = file.getName();
 
-                if(Utils.isHex(bytes) || Utils.isBase64(bytes)) {
+                // Check for binary PSBT first, before trying hex/base64 decoding
+                // This prevents misidentifying binary PSBT as base64 text
+                if(PSBT.isPSBT(bytes)) {
+                    addTransactionTab(name, file, bytes);
+                } else if(Utils.isHex(bytes) || Utils.isBase64(bytes)) {
                     addTransactionTab(name, file, new String(bytes, StandardCharsets.UTF_8).trim());
                 } else {
                     addTransactionTab(name, file, bytes);
@@ -809,9 +813,9 @@ public class AppController implements Initializable {
             String fileName = ((Label)selectedTab.getGraphic()).getText();
             if(fileName != null && !fileName.isEmpty()) {
                 fileName = fileName.replace('/', '_');
-                if(!fileName.endsWith(".psbt")) {
-                    fileName += ".psbt";
-                }
+                // Remove any existing .psbt, .txt, or .psbt.txt extensions to avoid double extensions
+                fileName = fileName.replaceAll("\\.(psbt|txt|psbt\\.txt)$", "");
+                fileName += ".psbt";
 
                 if(asText) {
                     fileName += ".txt";

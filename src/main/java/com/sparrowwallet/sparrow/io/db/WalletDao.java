@@ -137,6 +137,10 @@ public interface WalletDao {
             setSchema(schema);
             createPolicyDao().addPolicy(wallet.getDefaultPolicy());
 
+            // BIP-327: Debug logging for MuSig2 wallet save
+            boolean isMusig2 = wallet.getPolicyType() == com.sparrowwallet.drongo.policy.PolicyType.MUSIG2;
+            System.err.println("DEBUG WalletDao.addWallet: wallet=" + wallet.getName() + " policyType=" + wallet.getPolicyType() + " isMusig2=" + isMusig2);
+
             long id = insert(truncate(wallet.getName()), truncate(wallet.getLabel()), wallet.getNetwork().ordinal(), wallet.getPolicyType().ordinal(), wallet.getScriptType().ordinal(), wallet.getStoredBlockHeight(), wallet.gapLimit(), wallet.getWatchLast(), wallet.getBirthDate(), wallet.getDefaultPolicy().getId());
             wallet.setId(id);
 

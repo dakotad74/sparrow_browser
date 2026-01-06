@@ -1144,7 +1144,10 @@ public class HeadersController extends TransactionFormController implements Init
 
         if(result.isPresent()) {
             // PSBT was updated with partial signature
-            EventManager.get().post(new PSBTSignedEvent(headersForm.getPsbt(), result.get()));
+            PSBT updatedPsbt = result.get();
+            // Update the PSBT in the headers form
+            headersForm.setPsbt(updatedPsbt);
+            EventManager.get().post(new PSBTCombinedEvent(updatedPsbt));
         }
     }
 
