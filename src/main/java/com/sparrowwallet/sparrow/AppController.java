@@ -439,6 +439,10 @@ public class AppController implements Initializable {
             Config.get().setMode(serverToggle.isSelected() ? Mode.ONLINE : Mode.OFFLINE);
         });
 
+        com.sparrowwallet.sparrow.p2p.ui.P2PStatusIndicator p2pIndicator = 
+            new com.sparrowwallet.sparrow.p2p.ui.P2PStatusIndicator();
+        statusBar.getRightItems().add(Math.max(statusBar.getRightItems().size() - 1, 0), p2pIndicator);
+
         openTransactionIdItem.disableProperty().bind(onlineProperty().not());
         setNetworkLabel();
     }
