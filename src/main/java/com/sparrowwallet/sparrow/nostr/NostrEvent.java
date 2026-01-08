@@ -43,9 +43,13 @@ public class NostrEvent {
     /**
      * Event kinds for coordination
      */
+    public static final int KIND_ENCRYPTED_DM = 4; // NIP-04 encrypted DM
     public static final int KIND_DELETION = 5; // Event deletion (NIP-09)
+    public static final int KIND_FILE_METADATA = 1063; // NIP-94 file metadata
+    public static final int KIND_CLASSIFIED_LISTING = 30402; // NIP-99 classified listing
+    public static final int KIND_CLASSIFIED_DRAFT = 30403; // NIP-99 classified draft
     public static final int KIND_COORDINATION = 38383; // Custom kind for Bitcoin coordination
-    public static final int KIND_P2P_TRADE_OFFER = 38400; // P2P trade offers (buy/sell BTC)
+    public static final int KIND_P2P_TRADE_OFFER = 38400; // P2P trade offers (legacy, use 30402)
 
     public NostrEvent() {
         this.tags = new ArrayList<>();

@@ -32,7 +32,24 @@ public class ChatMessage {
         this.timestamp = timestamp;
         this.nostrEventId = nostrEventId;
         this.outgoing = outgoing;
-        this.read = outgoing; // Outgoing messages are always "read"
+        this.read = outgoing;
+    }
+
+    /**
+     * Constructor for local message (without nostrEventId)
+     */
+    public ChatMessage(String senderHex, String senderName, String recipientHex,
+                      String recipientName, String content, LocalDateTime timestamp,
+                      boolean outgoing) {
+        this.id = UUID.randomUUID().toString();
+        this.senderHex = senderHex;
+        this.senderName = senderName;
+        this.recipientHex = recipientHex;
+        this.content = content;
+        this.timestamp = timestamp;
+        this.nostrEventId = null;
+        this.outgoing = outgoing;
+        this.read = outgoing;
     }
 
     // Getters

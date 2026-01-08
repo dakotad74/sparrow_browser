@@ -190,3 +190,190 @@
     -fx-hgap: 15;
     -fx-vgap: 10;
 }
+
+/* P2P Status Bar */
+.p2p-status-bar {
+    -fx-background-color: derive(-fx-base, -8%);
+    -fx-border-color: derive(-fx-base, -15%);
+    -fx-border-width: 0 0 1 0;
+}
+
+.p2p-status-bar .status-label {
+    -fx-font-size: 11px;
+}
+
+.p2p-status-bar .status-indicator {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 0, 1);
+}
+
+.p2p-status-bar .relay-name {
+    -fx-font-size: 10px;
+    -fx-text-fill: derive(-fx-text-base-color, -20%);
+}
+
+.p2p-status-bar .connection-count {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+/* Offer Cards */
+.offer-card {
+    -fx-background-color: derive(-fx-base, 5%);
+    -fx-background-radius: 8;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-cursor: hand;
+}
+
+.offer-card:hover {
+    -fx-background-color: derive(-fx-base, -5%);
+    -fx-border-color: derive(-fx-base, -20%);
+}
+
+.offer-card .offer-type-badge {
+    -fx-padding: 2 8;
+    -fx-background-radius: 4;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+}
+
+.offer-card .offer-price {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.offer-card .offer-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.offer-card .offer-amount {
+    -fx-font-size: 12px;
+    -fx-text-fill: derive(-fx-text-base-color, -40%);
+}
+
+.offer-card .offer-payment,
+.offer-card .offer-location {
+    -fx-font-size: 11px;
+    -fx-text-fill: derive(-fx-text-base-color, -30%);
+}
+
+.offer-card .offer-seller {
+    -fx-font-size: 11px;
+    -fx-text-fill: derive(-fx-text-base-color, -50%);
+}
+
+/* Offer Detail Panel */
+.offer-detail-panel {
+    -fx-background-color: derive(-fx-base, 2%);
+}
+
+.offer-detail-panel .contact-button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10 30;
+    -fx-background-radius: 4;
+}
+
+.offer-detail-panel .contact-button:hover {
+    -fx-background-color: #1976D2;
+}
+
+.offer-detail-panel .delete-button {
+    -fx-background-color: #F44336;
+    -fx-text-fill: white;
+    -fx-padding: 8 20;
+    -fx-background-radius: 4;
+}
+
+.offer-detail-panel .delete-button:hover {
+    -fx-background-color: #D32F2F;
+}
+
+/* Chat Panel */
+.chat-panel {
+    -fx-background-color: derive(-fx-base, 0%);
+    -fx-border-color: derive(-fx-base, -15%);
+    -fx-border-width: 1 0 0 0;
+}
+
+.chat-panel .chat-header {
+    -fx-background-color: derive(-fx-base, -5%);
+    -fx-border-color: derive(-fx-base, -15%);
+    -fx-border-width: 0 0 1 0;
+}
+
+.chat-panel .chat-close-button {
+    -fx-font-size: 18px;
+    -fx-background-color: transparent;
+    -fx-text-fill: derive(-fx-text-base-color, -40%);
+}
+
+.chat-panel .chat-close-button:hover {
+    -fx-text-fill: #F44336;
+}
+
+.chat-panel .chat-scroll {
+    -fx-background-color: transparent;
+}
+
+.chat-panel .chat-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.chat-panel .chat-bubble-sent {
+    -fx-background-color: #2196F3;
+    -fx-background-radius: 12 12 4 12;
+}
+
+.chat-panel .chat-bubble-sent .label {
+    -fx-text-fill: white;
+}
+
+.chat-panel .chat-bubble-received {
+    -fx-background-color: derive(-fx-base, -10%);
+    -fx-background-radius: 12 12 12 4;
+}
+
+.chat-panel .chat-input-box {
+    -fx-background-color: derive(-fx-base, -3%);
+    -fx-border-color: derive(-fx-base, -15%);
+    -fx-border-width: 1 0 0 0;
+}
+
+.chat-panel .chat-input {
+    -fx-background-color: derive(-fx-base, 5%);
+    -fx-background-radius: 20;
+    -fx-padding: 8 15;
+}
+
+.chat-panel .chat-send-button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+}
+
+.chat-panel .chat-send-button:hover {
+    -fx-background-color: #1976D2;
+}
+
+.chat-panel .chat-status {
+    -fx-font-size: 10px;
+    -fx-text-fill: derive(-fx-text-base-color, -50%);
+}
+
+/* Marketplace Grid */
+.offers-scroll {
+    -fx-background-color: transparent;
+}
+
+.offers-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* P2P Marketplace */
+.p2p-marketplace {
+    -fx-background-color: -fx-base;
+}

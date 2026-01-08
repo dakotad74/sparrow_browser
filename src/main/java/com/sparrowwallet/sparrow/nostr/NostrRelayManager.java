@@ -357,6 +357,15 @@ public class NostrRelayManager {
                 .count();
     }
 
+    public List<String> getRelayUrls() {
+        return new ArrayList<>(relayUrls);
+    }
+
+    public boolean isRelayConnected(String url) {
+        RelayConnection connection = connections.get(url);
+        return connection != null && connection.isConnected();
+    }
+
     /**
      * Process incoming Nostr message
      *

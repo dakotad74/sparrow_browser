@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.BorderPane?>
+<?import com.sparrowwallet.sparrow.p2p.ui.P2PMarketplacePane?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.sparrowwallet.sparrow.p2p.P2PMarketplaceController"
+            styleClass="p2p-marketplace"
+            stylesheets="@p2p.css">
+
+    <center>
+        <P2PMarketplacePane fx:id="marketplacePane"/>
+    </center>
+
+</BorderPane>

@@ -98,9 +98,13 @@ public class NostrP2PService {
         });
         log.error("=== MESSAGE HANDLER ADDED (NostrP2PService) ===");
 
-        // Create filter for trade offers (kind: 38400) and deletions (kind: 5)
+        // Create filter for trade offers (kind: 30402, 38400) and deletions (kind: 5)
         Map<String, Object> filter = new HashMap<>();
-        filter.put("kinds", List.of(NostrEvent.KIND_P2P_TRADE_OFFER, NostrEvent.KIND_DELETION));
+        filter.put("kinds", List.of(
+            NostrEvent.KIND_CLASSIFIED_LISTING,
+            NostrEvent.KIND_P2P_TRADE_OFFER,
+            NostrEvent.KIND_DELETION
+        ));
 
         // Get offers from last 24 hours (not just future ones)
         long oneDayAgo = (System.currentTimeMillis() / 1000) - (24 * 60 * 60);
@@ -287,18 +291,18 @@ public class NostrP2PService {
     private void handleIncomingEvent(NostrEvent event) {
         log.error("=== handleIncomingEvent called: kind={} ===", event.getKind());
 
-        // Handle deletion events (kind 5)
         if (event.getKind() == NostrEvent.KIND_DELETION) {
             handleDeletionEvent(event);
             return;
         }
 
-        if (event.getKind() != NostrEvent.KIND_P2P_TRADE_OFFER) {
-            log.error("=== Not a trade offer, kind={} (expected {}) ===", event.getKind(), NostrEvent.KIND_P2P_TRADE_OFFER);
-            return; // Not a trade offer
+        if (event.getKind() != NostrEvent.KIND_P2P_TRADE_OFFER &&
+            event.getKind() != NostrEvent.KIND_CLASSIFIED_LISTING) {
+            log.debug("=== Not a trade offer, kind={} (expected {} or {}) ===",
+                event.getKind(), NostrEvent.KIND_CLASSIFIED_LISTING, NostrEvent.KIND_P2P_TRADE_OFFER);
+            return;
         }
 
-        // Check if we already processed this event (avoid duplicates from multiple relays)
         String eventId = event.getId();
         if (processedEventIds.contains(eventId)) {
             log.debug("Already processed event {}, ignoring duplicate from another relay", eventId.substring(0, 8));
@@ -306,16 +310,18 @@ public class NostrP2PService {
         }
 
         try {
-            log.error("=== Processing trade offer event: {} ===", eventId);
+            log.error("=== Processing trade offer event: {} (kind={}) ===", eventId, event.getKind());
 
-            // Mark event as processed
             processedEventIds.add(eventId);
 
-            // Parse offer from event content
-            TradeOffer offer = parseOfferFromEvent(event);
+            TradeOffer offer;
+            if (event.getKind() == NostrEvent.KIND_CLASSIFIED_LISTING) {
+                offer = com.sparrowwallet.sparrow.p2p.nostr.NostrOffer.fromNostrEvent(event);
+            } else {
+                offer = parseOfferFromEvent(event);
+            }
 
             if (offer != null) {
-                // Add to marketplace (on JavaFX thread)
                 Platform.runLater(() -> {
                     offerManager.addMarketplaceOffer(offer);
                     log.error("=== ADDED OFFER TO MARKETPLACE: {} ===", offer.getDisplaySummary());
