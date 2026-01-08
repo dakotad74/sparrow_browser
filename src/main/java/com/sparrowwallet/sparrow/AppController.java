@@ -1499,19 +1499,22 @@ public class AppController implements Initializable {
     }
 
     public void showP2PExchange(ActionEvent event) {
-        log.error("=== SHOW P2P EXCHANGE CALLED ===");
+        log.info("Opening P2P Exchange with new UI");
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("p2p/p2p-exchange.fxml"));
-            log.error("=== LOADING FXML: p2p/p2p-exchange.fxml ===");
+            com.sparrowwallet.sparrow.p2p.ui.P2PExchangePane exchangePane = 
+                new com.sparrowwallet.sparrow.p2p.ui.P2PExchangePane();
+            
             Stage stage = new Stage();
             stage.setTitle("P2P Exchange - Sparrow");
-            stage.setScene(new Scene(loader.load()));
+            Scene scene = new Scene(exchangePane, 1200, 800);
+            scene.getStylesheets().add(getClass().getResource("p2p/p2p.css").toExternalForm());
+            stage.setScene(scene);
             stage.initOwner(rootStack.getScene().getWindow());
             stage.initModality(Modality.NONE);
-            stage.setMinWidth(900);
+            stage.setMinWidth(1000);
             stage.setMinHeight(700);
             stage.show();
-        } catch(IOException e) {
+        } catch(Exception e) {
             log.error("Failed to open P2P Exchange", e);
             AppServices.showErrorDialog("P2P Exchange Error", "Failed to open P2P Exchange: " + e.getMessage());
         }
