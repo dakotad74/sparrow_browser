@@ -1,0 +1,26 @@
+{
+  "identities": [
+    {
+      "id": "e5107b7c-3e1c-4d2f-b84f-15bdc1a7541f",
+      "npub": "npub1aeucwvch6gueflk4e0rm5fpzpa27r0y3fk4zxu0cr7mh9xctd2js9rkcss",
+      "nsec": "3f210b3cd68858319dd458683a702f420decf0bf6c8a573895a70f736429fbfc",
+      "hex": "ee79873317d23994fed5cbc7ba24220f55e1bc914daa2371f81fb7729b0b6aa5",
+      "displayName": "Hidden_ae54",
+      "type": "EPHEMERAL",
+      "isActive": true,
+      "createdAt": "2026-01-08T16:27:32.332849570",
+      "expiresAt": "2026-01-15T16:27:32.332967304"
+    },
+    {
+      "id": "537d0472-3691-4e09-8a04-91a25a9be1e8",
+      "npub": "npub1ngghvd26wfcz094gje7w9u96cuamwc7045382uzw3h0z95zqg3qqpvdxwu",
+      "nsec": "a7509d2d8fedbb54530a14bb18f62cdf5b1615d71e6dc620136c223a7bf9a77c",
+      "hex": "9a1176355a72702796a8967ce2f0bac73bb763cfad2275704e8dde22d0404440",
+      "displayName": "Anon_1801",
+      "type": "EPHEMERAL",
+      "isActive": true,
+      "createdAt": "2026-01-08T16:47:54.242238378",
+      "expiresAt": "2026-01-15T16:47:54.242264668"
+    }
+  ]
+}

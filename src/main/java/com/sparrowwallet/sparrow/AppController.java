@@ -1499,21 +1499,40 @@ public class AppController implements Initializable {
     }
 
     public void showP2PExchange(ActionEvent event) {
-        log.info("Opening P2P Exchange with new UI");
+        for(Tab tab : tabs.getTabs()) {
+            TabData tabData = (TabData) tab.getUserData();
+            if(tabData != null && tabData.getType() == TabData.TabType.P2P_EXCHANGE) {
+                tabs.getSelectionModel().select(tab);
+                return;
+            }
+        }
+
         try {
+            String p2pCss = getClass().getResource("p2p/p2p.css").toExternalForm();
+            if(!tabs.getScene().getStylesheets().contains(p2pCss)) {
+                tabs.getScene().getStylesheets().add(p2pCss);
+            }
+
             com.sparrowwallet.sparrow.p2p.ui.P2PExchangePane exchangePane = 
                 new com.sparrowwallet.sparrow.p2p.ui.P2PExchangePane();
             
-            Stage stage = new Stage();
-            stage.setTitle("P2P Exchange - Sparrow");
-            Scene scene = new Scene(exchangePane, 1200, 800);
-            scene.getStylesheets().add(getClass().getResource("p2p/p2p.css").toExternalForm());
-            stage.setScene(scene);
-            stage.initOwner(rootStack.getScene().getWindow());
-            stage.initModality(Modality.NONE);
-            stage.setMinWidth(1000);
-            stage.setMinHeight(700);
-            stage.show();
+            Tab tab = new Tab("");
+            Glyph glyph = new Glyph(FontAwesome5.FONT_NAME, FontAwesome5.Glyph.EXCHANGE_ALT);
+            glyph.setFontSize(10.0);
+            glyph.setOpacity(TAB_LABEL_GRAPHIC_OPACITY_ACTIVE);
+            Label tabLabel = new Label("P2P Exchange");
+            tabLabel.setGraphic(glyph);
+            tabLabel.setGraphicTextGap(5.0);
+            tab.setGraphic(tabLabel);
+            tab.setContextMenu(getTabContextMenu(tab));
+            tab.setClosable(true);
+            tab.setContent(exchangePane);
+            
+            TabData tabData = new TabData(TabData.TabType.P2P_EXCHANGE);
+            tab.setUserData(tabData);
+            
+            tabs.getTabs().add(tab);
+            tabs.getSelectionModel().select(tab);
         } catch(Exception e) {
             log.error("Failed to open P2P Exchange", e);
             AppServices.showErrorDialog("P2P Exchange Error", "Failed to open P2P Exchange: " + e.getMessage());

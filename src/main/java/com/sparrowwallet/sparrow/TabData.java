@@ -12,6 +12,6 @@ public class TabData {
     }
 
     public enum TabType {
-        WALLET, TRANSACTION
+        WALLET, TRANSACTION, P2P_EXCHANGE
     }
 }

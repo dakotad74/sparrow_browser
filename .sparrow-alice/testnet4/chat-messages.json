@@ -11,6 +11,18 @@
         "isRead": true,
         "outgoing": true
       }
+    ],
+    "251fa060-c0bd-49da-b19f-294ef97567f6": [
+      {
+        "senderHex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+        "senderName": "ALICE4",
+        "recipientHex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+        "content": "fdgfd",
+        "timestamp": "2026-01-08T17:35:15.102350078",
+        "nostrEventId": "cfc8af04b44c1f28f8b1b0ffd70e4506d34b7383cf6a7735324b645b317a68fb",
+        "isRead": true,
+        "outgoing": true
+      }
     ]
   }
 }

@@ -1,0 +1,38 @@
+{
+  "conversations": {
+    "0701f15e-3c38-4afa-9321-689722f6b96b": [
+      {
+        "senderHex": "9a1176355a72702796a8967ce2f0bac73bb763cfad2275704e8dde22d0404440",
+        "senderName": "Anon_1801",
+        "recipientHex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+        "content": "hi alice estas ahi?",
+        "timestamp": "2026-01-08T16:48:33.667192017",
+        "nostrEventId": "81cbb8c5deb768cc92584767d9f35a4e877e01498669e33013e1ddc33534e2d5",
+        "isRead": true,
+        "outgoing": true
+      }
+    ],
+    "251fa060-c0bd-49da-b19f-294ef97567f6": [
+      {
+        "senderHex": "ee79873317d23994fed5cbc7ba24220f55e1bc914daa2371f81fb7729b0b6aa5",
+        "senderName": "Hidden_ae54",
+        "recipientHex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+        "content": "hi",
+        "timestamp": "2026-01-08T16:27:57.019244175",
+        "nostrEventId": "efbb3d1923b46d86cd8b7f72aa94ce935aa14d8cf0f8cd38a8b9e18f5a5e861d",
+        "isRead": true,
+        "outgoing": true
+      },
+      {
+        "senderHex": "ee79873317d23994fed5cbc7ba24220f55e1bc914daa2371f81fb7729b0b6aa5",
+        "senderName": "Hidden_ae54",
+        "recipientHex": "458a4bef0ed7a9ec102cb6ce800fdd973d18dc19e856e0876d42bc167dc9a371",
+        "content": "hi",
+        "timestamp": "2026-01-08T16:28:35.534260341",
+        "nostrEventId": "ca9905cb7910a0061f2a2cb8ef49fc81324ff17f59fca6b46db01137c5a3eaa6",
+        "isRead": true,
+        "outgoing": true
+      }
+    ]
+  }
+}
