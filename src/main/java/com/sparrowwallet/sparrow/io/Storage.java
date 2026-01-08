@@ -43,6 +43,7 @@ public class Storage {
     public static final String WALLETS_DIR = "wallets";
     public static final String WALLETS_BACKUP_DIR = "backup";
     public static final String CERTS_DIR = "certs";
+    public static final String MUSIG2_DIR = "musig2";
     public static final List<String> RESERVED_WALLET_NAMES = List.of("temp");
 
     private Persistence persistence;
@@ -81,6 +82,27 @@ public class Storage {
 
     public String getWalletName(Wallet wallet) {
         return persistence.getWalletName(walletFile, wallet);
+    }
+
+    /**
+     * Get the MuSig2 directory for this wallet
+     *
+     * Returns ~/.sparrow/[network]/wallets/[wallet_name]/musig2/
+     * This directory stores MuSig2-specific state like nonce ratchet files.
+     *
+     * @param wallet The wallet instance
+     * @return MuSig2 directory (created if it doesn't exist)
+     */
+    public File getMuSig2Dir(Wallet wallet) {
+        String walletName = getWalletName(wallet);
+        File walletDir = walletFile.getParentFile();
+        File muSig2Dir = new File(walletDir, walletName + File.separator + MUSIG2_DIR);
+
+        if (!muSig2Dir.exists()) {
+            createOwnerOnlyDirectory(muSig2Dir);
+        }
+
+        return muSig2Dir;
     }
 
     public String getWalletFileExtension() {

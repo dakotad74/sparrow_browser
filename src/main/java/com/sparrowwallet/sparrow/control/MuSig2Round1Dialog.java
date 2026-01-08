@@ -7,6 +7,7 @@ import com.sparrowwallet.drongo.crypto.ECKey;
 import com.sparrowwallet.drongo.crypto.musig2.MuSig2;
 import com.sparrowwallet.drongo.crypto.musig2.MuSig2.CompleteNonce;
 import com.sparrowwallet.drongo.crypto.musig2.MuSig2Core;
+import com.sparrowwallet.drongo.crypto.musig2.NonceRatchet;
 import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.psbt.PSBTInput;
@@ -56,6 +57,7 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
     private final Map<Integer, CompleteNonce> myCompleteNonces;
     private final Map<Integer, byte[]> messages;
     private final Map<Integer, List<ECKey>> inputPublicKeys;
+    private NonceRatchet nonceRatchet; // Hash ratchet for secure nonce generation
 
     private TextArea myNoncesArea;
     private TextArea otherNoncesArea;
@@ -70,9 +72,39 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
         this.messages = new HashMap<>();
         this.inputPublicKeys = new HashMap<>();
 
+        // Initialize NonceRatchet for secure nonce generation
+        initializeNonceRatchet();
+
+        // Set up cleanup handler for when dialog is closed
+        setOnCloseRequest(event -> cleanupResources());
+
         EventManager.get().register(this);
         setResultConverter(dialogButton -> dialogButton.getButtonData().isCancelButton() ? null : getRound1Data());
         initDialog();
+    }
+
+    /**
+     * Initialize the NonceRatchet for this wallet
+     *
+     * The ratchet ensures nonces are NEVER reused, even across crashes or restarts.
+     * State is stored in ~/.sparrow/[network]/wallets/[wallet_name]/musig2/
+     */
+    private void initializeNonceRatchet() {
+        try {
+            Storage storage = AppServices.get().getOpenWallets().get(wallet);
+            if (storage == null) {
+                log.warn("No storage found for wallet, NonceRatchet will not be initialized");
+                return;
+            }
+
+            java.io.File muSig2Dir = storage.getMuSig2Dir(wallet);
+            this.nonceRatchet = new NonceRatchet(muSig2Dir);
+            log.info("NonceRatchet initialized for wallet {} (index={})",
+                    wallet.getName(), nonceRatchet.getCurrentIndex());
+        } catch (Exception e) {
+            log.error("Failed to initialize NonceRatchet", e);
+            this.nonceRatchet = null;
+        }
     }
 
     private void initDialog() {
@@ -382,8 +414,15 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
                         return;
                     }
 
-                    // Generate Round 1 nonce using MuSig2 API
-                    CompleteNonce completeNonce = MuSig2.generateRound1Nonce(privKey, publicKeys, message);
+                    // Generate Round 1 nonce using MuSig2 API with NonceRatchet
+                    // This ensures nonces are NEVER reused, even across crashes
+                    CompleteNonce completeNonce = MuSig2.generateRound1Nonce(privKey, publicKeys, message, nonceRatchet);
+
+                    if (nonceRatchet != null) {
+                        log.info("Nonce generated from ratchet (index={})", nonceRatchet.getCurrentIndex());
+                    } else {
+                        log.warn("Nonce generated WITHOUT ratchet (fallback mode - NOT RECOMMENDED)");
+                    }
 
                     myCompleteNonces.put(inputCount, completeNonce);
                     messages.put(inputCount, sigHash);
@@ -546,6 +585,17 @@ public class MuSig2Round1Dialog extends Dialog<MuSig2Round1Dialog.MuSig2Round1Da
         if(psbt == event.getPsbt()) {
             // PSBT was signed through other means, close this dialog
             Platform.runLater(() -> close());
+        }
+    }
+
+    /**
+     * Clean up resources when dialog is closed
+     */
+    private void cleanupResources() {
+        // Securely wipe nonce ratchet from memory
+        if (nonceRatchet != null) {
+            nonceRatchet.close();
+            log.info("NonceRatchet closed and wiped from memory");
         }
     }
 
