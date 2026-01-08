@@ -147,9 +147,19 @@ public class P2PExchangeController implements Initializable {
         // Start service in background
         new Thread(() -> {
             try {
-                nostrP2PService.start();
+                // IMPORTANT: Service.start() must be called from the FX Application Thread
+                Platform.runLater(() -> {
+                    try {
+                        nostrP2PService.start();
+                    } catch (Exception e) {
+                        log.error("Failed to start Nostr P2P Service from FX thread", e);
+                        Platform.runLater(() -> {
+                            statusLabel.setText("Failed to connect to Nostr relays");
+                        });
+                    }
+                });
 
-                // Wait a bit for connections
+                // Wait for service to actually start
                 Thread.sleep(2000);
 
                 // Subscribe to offers
@@ -180,7 +190,7 @@ public class P2PExchangeController implements Initializable {
                 log.info("Nostr P2P service started successfully");
 
             } catch (Exception e) {
-                log.error("Failed to start Nostr P2P service", e);
+                log.error("Failed to complete Nostr P2P service initialization", e);
                 Platform.runLater(() -> {
                     statusLabel.setText("Failed to connect to Nostr relays");
                 });
